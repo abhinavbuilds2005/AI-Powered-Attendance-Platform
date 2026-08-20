@@ -1,6 +1,6 @@
 // ==================== APP CONFIGURATION & STATE ====================
 // Adjust API URL base if your Render backend runs on a custom domain.
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:'
     ? 'http://127.0.0.1:8000/api' 
     : 'https://ai-powered-attendance-platform.onrender.com/api';
 
@@ -460,7 +460,7 @@ async function loadStudentDashboard() {
                 card.innerHTML = `
                     <div class="course-info">
                         <h4>${sub.name}</h4>
-                        <span class="course-code">📘 ${sub.subject_code} • Section ${sub.section}</span>
+                        <span class="course-code">Code ${sub.subject_code} - Section ${sub.section}</span>
                     </div>
                     <div>
                         <div class="course-card-metrics">
@@ -474,7 +474,7 @@ async function loadStudentDashboard() {
                             </div>
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="badge" style="background:rgba(139,92,246,0.1); color:var(--color-primary); font-weight:700">${percent}% Rate</span>
+                            <span class="badge" style="background:#e6f4f1; color:var(--color-primary); font-weight:700">${percent}% Rate</span>
                             <button class="btn btn-danger-tertiary btn-icon btn-unenroll" data-id="${sub.subject_id}">
                                 <span class="material-symbols-rounded">delete</span> Drop
                             </button>
@@ -1074,7 +1074,7 @@ async function loadTeacherSubjectsGrid() {
             card.innerHTML = `
                 <div class="course-info">
                     <h4>${sub.name}</h4>
-                    <span class="course-code">📘 Code: ${sub.subject_code} • Sec ${sub.section}</span>
+                    <span class="course-code">Code ${sub.subject_code} - Sec ${sub.section}</span>
                 </div>
                 <div class="course-card-metrics" style="margin-bottom:0">
                     <div>

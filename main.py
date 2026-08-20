@@ -14,7 +14,7 @@ from src.database.db import (
     get_all_students, create_student, get_student_subjects,
     get_student_attendance, enroll_student_to_subject,
     unenroll_student_to_subject, get_teacher_subjects,
-    get_attendance_for_teacher, create_attendance
+    get_attendance_for_teacher, create_attendance, create_subject
 )
 from src.pipelines.face_pipeline import predict_attendance, get_face_embeddings, train_classifier
 from src.pipelines.voice_pipeline import get_voice_embedding, process_bulk_audio
@@ -200,6 +200,8 @@ async def teacher_login_api(req: TeacherLoginRequest):
             teacher_clean.pop('password', None)
             return {"success": True, "teacher": teacher_clean}
         raise HTTPException(status_code=400, detail="Invalid username or password.")
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -215,7 +217,8 @@ async def teacher_subjects_api(teacher_id: int):
 async def teacher_create_subject_api(req: CreateSubjectRequest):
     try:
         res = create_subject(req.subject_code, req.name, req.section, req.teacher_id)
-        return {"success": True, "subject": res}
+        subject = res[0] if res else {}
+        return {"success": True, "subject": subject}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
