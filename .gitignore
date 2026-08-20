@@ -1,0 +1,25 @@
+# Database Credentials & Secrets
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Frontend builds
+dist/
+node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db

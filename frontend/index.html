@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Biometric Attendance System</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Material Symbols Rounded -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Background Glow Effects -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="app-container">
+
+        <!-- ==================== SCREEN 1: HOME PORTAL ==================== -->
+        <section id="screen-home" class="screen active">
+            <header class="home-header">
+                <div class="brand">
+                    <span class="material-symbols-rounded logo-icon">fingerprint</span>
+                    <h1>AURA<span>ATTEND</span></h1>
+                </div>
+                <p class="subtitle">Next-gen classroom check-ins powered by secure face & voice biometrics.</p>
+            </header>
+
+            <div class="portal-grid">
+                <!-- Student Card -->
+                <div class="portal-card student-card" id="btn-portal-student">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-wrapper">
+                        <span class="material-symbols-rounded">school</span>
+                    </div>
+                    <h2>Student Portal</h2>
+                    <p>Log in instantly using FaceID, enroll in subjects, and track your attendance record in real time.</p>
+                    <div class="card-action">
+                        <span>Enter Portal</span>
+                        <span class="material-symbols-rounded">arrow_forward</span>
+                    </div>
+                </div>
+
+                <!-- Teacher Card -->
+                <div class="portal-card teacher-card" id="btn-portal-teacher">
+                    <div class="card-glow"></div>
+                    <div class="card-icon-wrapper">
+                        <span class="material-symbols-rounded">co_present</span>
+                    </div>
+                    <h2>Teacher Portal</h2>
+                    <p>Manage your subjects, run classroom-wide face analysis, execute voice roll calls, and export logs.</p>
+                    <div class="card-action">
+                        <span>Enter Portal</span>
+                        <span class="material-symbols-rounded">arrow_forward</span>
+                    </div>
+                </div>
+            </div>
+            
+            <footer class="home-footer">
+                <p>&copy; 2026 AuraAttend. Powered by Deep Neural Networks & Supabase.</p>
+            </footer>
+        </section>
+
+
+        <!-- ==================== SCREEN 2: STUDENT LOGIN ==================== -->
+        <section id="screen-student-login" class="screen">
+            <div class="back-nav">
+                <button class="btn btn-secondary btn-icon" id="btn-student-login-back">
+                    <span class="material-symbols-rounded">arrow_back</span> Back
+                </button>
+            </div>
+
+            <div class="auth-box glass-panel">
+                <h2>Face Authentication</h2>
+                <p class="box-desc">Look directly into your camera to verify your identity.</p>
+
+                <!-- Webcam Capture Container -->
+                <div class="camera-wrapper">
+                    <div class="camera-lens">
+                        <video id="student-login-video" autoplay playsinline muted></video>
+                        <canvas id="student-login-canvas" class="hidden"></canvas>
+                        
+                        <!-- Scanning Animations -->
+                        <div class="scan-laser"></div>
+                        <div class="scan-corners">
+                            <div class="c-top-left"></div>
+                            <div class="c-top-right"></div>
+                            <div class="c-bottom-left"></div>
+                            <div class="c-bottom-right"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-actions">
+                    <button class="btn btn-primary" id="btn-student-login-capture">
+                        <span class="material-symbols-rounded">photo_camera</span> Scan My Face
+                    </button>
+                </div>
+                
+                <div id="student-login-status" class="auth-status">
+                    <!-- Status message injected here -->
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SCREEN 3: STUDENT REGISTER ==================== -->
+        <section id="screen-student-register" class="screen">
+            <div class="back-nav">
+                <button class="btn btn-secondary btn-icon" id="btn-student-register-back">
+                    <span class="material-symbols-rounded">arrow_back</span> Back
+                </button>
+            </div>
+
+            <div class="auth-box glass-panel wide-auth-box">
+                <h2>Register Student Profile</h2>
+                <p class="box-desc">Set up your face and voice biometrics to enroll in the system.</p>
+
+                <div class="register-layout">
+                    <!-- Left: Inputs and Voice -->
+                    <div class="register-fields">
+                        <div class="input-group">
+                            <label for="reg-student-name">Full Name</label>
+                            <input type="text" id="reg-student-name" placeholder="E.g. Hamza Rizvi" required>
+                        </div>
+
+                        <div class="voice-enrollment-card glass-panel-inner">
+                            <div class="voice-header">
+                                <span class="material-symbols-rounded voice-icon">mic</span>
+                                <div>
+                                    <h3>Voice Enrollment</h3>
+                                    <p class="voice-desc">Record yourself saying: <em>"My name is [your name], and I am present."</em></p>
+                                </div>
+                            </div>
+                            
+                            <!-- Recording status/UI -->
+                            <div class="voice-recorder-ui">
+                                <button class="btn btn-secondary btn-icon" id="btn-voice-record">
+                                    <span class="material-symbols-rounded" id="mic-icon">mic</span>
+                                    <span id="voice-record-text">Record Voice</span>
+                                </button>
+                                <span class="voice-timer hidden" id="voice-timer">00:00</span>
+                            </div>
+                            
+                            <!-- Visualizer Waveform -->
+                            <div class="waveform-container hidden" id="waveform-container">
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                                <div class="wave-bar"></div>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary btn-large" id="btn-student-register-submit">
+                            <span class="material-symbols-rounded">how_to_reg</span> Create Profile
+                        </button>
+                    </div>
+
+                    <!-- Right: Photo Snapshot -->
+                    <div class="register-snapshot">
+                        <label>Face Identification Photo</label>
+                        <div class="snapshot-preview glass-panel-inner" id="snapshot-preview-container">
+                            <video id="student-reg-video" autoplay playsinline muted></video>
+                            <canvas id="student-reg-canvas" class="hidden"></canvas>
+                            <img id="student-reg-img" class="hidden" alt="Profile snapshot">
+                            <div class="snap-overlay" id="snap-overlay">Ready for snapshot</div>
+                        </div>
+                        <button class="btn btn-secondary" id="btn-student-reg-snap">
+                            <span class="material-symbols-rounded">camera</span> Take Photo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SCREEN 4: STUDENT DASHBOARD ==================== -->
+        <section id="screen-student-dashboard" class="screen">
+            <header class="dashboard-header glass-panel">
+                <div class="dashboard-brand">
+                    <span class="material-symbols-rounded brand-logo">fingerprint</span>
+                    <h2>Student Portal</h2>
+                </div>
+                <div class="user-profile">
+                    <div class="profile-info">
+                        <span class="welcome-text">Welcome Back,</span>
+                        <span class="profile-name" id="student-welcome-name">Loading...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-icon" id="btn-student-logout">
+                        <span class="material-symbols-rounded">logout</span> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <!-- Overview & Stats -->
+                <div class="stats-panel glass-panel">
+                    <h3>Your Attendance Overview</h3>
+                    <div class="attendance-gauge-wrapper">
+                        <!-- SVG Circular Progress Bar -->
+                        <svg class="progress-ring" width="160" height="160">
+                            <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="12" fill="transparent" r="70" cx="80" cy="80"/>
+                            <circle class="progress-ring__circle" id="student-progress-circle" stroke="url(#gradient-aurora)" stroke-width="12" fill="transparent" r="70" cx="80" cy="80" stroke-dasharray="439.8" stroke-dashoffset="439.8"/>
+                            <defs>
+                                <linearGradient id="gradient-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#10b981" />
+                                    <stop offset="100%" stop-color="#00d2ff" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <div class="gauge-percentage">
+                            <span id="student-attendance-percent">0%</span>
+                            <span class="gauge-label">Attended</span>
+                        </div>
+                    </div>
+
+                    <div class="attendance-meta">
+                        <div class="meta-item">
+                            <span class="meta-val" id="student-total-attended">0</span>
+                            <span class="meta-lbl">Attended Sessions</span>
+                        </div>
+                        <div class="meta-item-divider"></div>
+                        <div class="meta-item">
+                            <span class="meta-val" id="student-total-sessions">0</span>
+                            <span class="meta-lbl">Total Sessions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Courses section -->
+                <div class="courses-panel">
+                    <div class="section-title-wrapper">
+                        <h3>Enrolled Courses</h3>
+                        <button class="btn btn-primary btn-icon" id="btn-student-open-enroll">
+                            <span class="material-symbols-rounded">add</span> Enroll in Subject
+                        </button>
+                    </div>
+
+                    <div class="course-grid" id="student-course-grid">
+                        <!-- Course cards injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SCREEN 5: TEACHER LOGIN ==================== -->
+        <section id="screen-teacher-login" class="screen">
+            <div class="back-nav">
+                <button class="btn btn-secondary btn-icon" id="btn-teacher-login-back">
+                    <span class="material-symbols-rounded">arrow_back</span> Back
+                </button>
+            </div>
+
+            <div class="auth-box glass-panel">
+                <h2>Teacher Authentication</h2>
+                <p class="box-desc">Sign in with your academic credentials.</p>
+
+                <form id="form-teacher-login" class="auth-form">
+                    <div class="input-group">
+                        <label for="login-teacher-username">Username</label>
+                        <input type="text" id="login-teacher-username" placeholder="E.g. teacher123" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="login-teacher-password">Password</label>
+                        <input type="password" id="login-teacher-password" placeholder="Enter password" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-large btn-full">
+                        <span class="material-symbols-rounded">login</span> Log In
+                    </button>
+                </form>
+
+                <div class="form-switch">
+                    <p>New to AuraAttend? <span id="link-go-to-teacher-register">Create an account</span></p>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SCREEN 6: TEACHER REGISTER ==================== -->
+        <section id="screen-teacher-register" class="screen">
+            <div class="back-nav">
+                <button class="btn btn-secondary btn-icon" id="btn-teacher-register-back">
+                    <span class="material-symbols-rounded">arrow_back</span> Back
+                </button>
+            </div>
+
+            <div class="auth-box glass-panel">
+                <h2>Register Teacher Profile</h2>
+                <p class="box-desc">Create your credentials to manage subjects and take attendance.</p>
+
+                <form id="form-teacher-register" class="auth-form">
+                    <div class="input-group">
+                        <label for="reg-teacher-name">Full Name</label>
+                        <input type="text" id="reg-teacher-name" placeholder="E.g. Dr. John Doe" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-teacher-username">Username</label>
+                        <input type="text" id="reg-teacher-username" placeholder="E.g. teacher123" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-teacher-password">Password</label>
+                        <input type="password" id="reg-teacher-password" placeholder="Min. 6 characters" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-teacher-confirm-password">Confirm Password</label>
+                        <input type="password" id="reg-teacher-confirm-password" placeholder="Re-enter password" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-large btn-full">
+                        <span class="material-symbols-rounded">how_to_reg</span> Register Profile
+                    </button>
+                </form>
+
+                <div class="form-switch">
+                    <p>Already have an account? <span id="link-go-to-teacher-login">Log in here</span></p>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== SCREEN 7: TEACHER DASHBOARD ==================== -->
+        <section id="screen-teacher-dashboard" class="screen">
+            <!-- Header -->
+            <header class="dashboard-header glass-panel">
+                <div class="dashboard-brand">
+                    <span class="material-symbols-rounded brand-logo">fingerprint</span>
+                    <h2>Teacher Portal</h2>
+                </div>
+                <div class="user-profile">
+                    <div class="profile-info">
+                        <span class="welcome-text">Welcome,</span>
+                        <span class="profile-name" id="teacher-welcome-name">Loading...</span>
+                    </div>
+                    <button class="btn btn-secondary btn-icon" id="btn-teacher-logout">
+                        <span class="material-symbols-rounded">logout</span> Logout
+                    </button>
+                </div>
+            </header>
+
+            <div class="teacher-dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="sidebar glass-panel">
+                    <nav class="sidebar-nav">
+                        <button class="nav-item active" data-tab="tab-take-attendance">
+                            <span class="material-symbols-rounded">ar_on_you</span> Take Attendance
+                        </button>
+                        <button class="nav-item" data-tab="tab-manage-subjects">
+                            <span class="material-symbols-rounded">book_ribbon</span> Manage Subjects
+                        </button>
+                        <button class="nav-item" data-tab="tab-attendance-records">
+                            <span class="material-symbols-rounded">cards_stack</span> Attendance Records
+                        </button>
+                    </nav>
+                </aside>
+
+                <!-- Main Content Pane -->
+                <main class="main-content">
+                    
+                    <!-- TAB A: TAKE ATTENDANCE -->
+                    <div id="tab-take-attendance" class="tab-pane active">
+                        <div class="tab-header-section">
+                            <h2>Take AI Attendance</h2>
+                            <p>Select a subject and run biometric checks via face scanning or voice analysis.</p>
+                        </div>
+
+                        <div class="attendance-setup glass-panel">
+                            <div class="setup-row">
+                                <div class="input-group select-group">
+                                    <label for="attendance-subject-select">Select Course</label>
+                                    <select id="attendance-subject-select">
+                                        <option value="">-- Choose Subject --</option>
+                                        <!-- Injected dynamically -->
+                                    </select>
+                                </div>
+                                <div class="biometric-mode-selector">
+                                    <label>Biometric Mode</label>
+                                    <div class="toggle-buttons">
+                                        <button class="btn btn-secondary active" id="btn-mode-face">
+                                            <span class="material-symbols-rounded">face</span> Face AI
+                                        </button>
+                                        <button class="btn btn-secondary" id="btn-mode-voice">
+                                            <span class="material-symbols-rounded">graphic_eq</span> Voice AI
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Face Attendance Panel -->
+                        <div id="panel-attendance-face" class="attendance-panel-mode">
+                            <div class="uploader-container glass-panel" id="photo-drop-zone">
+                                <span class="material-symbols-rounded upload-icon">cloud_upload</span>
+                                <h3>Upload Classroom Photos</h3>
+                                <p>Drag and drop multiple classroom snapshots, or click to browse files.</p>
+                                <input type="file" id="classroom-photo-input" multiple accept="image/*" class="hidden">
+                                <button class="btn btn-secondary" id="btn-browse-photos">Browse Images</button>
+                            </div>
+
+                            <div class="selected-photos-section hidden" id="selected-photos-section">
+                                <div class="section-title-wrapper">
+                                    <h3>Classroom Snapshots (<span id="photo-count">0</span>)</h3>
+                                    <button class="btn btn-danger-tertiary btn-icon" id="btn-clear-photos">
+                                        <span class="material-symbols-rounded">delete</span> Clear All
+                                    </button>
+                                </div>
+                                <div class="photo-thumbnail-grid" id="photo-thumbnail-grid">
+                                    <!-- Injected dynamically -->
+                                </div>
+                                
+                                <div class="analysis-action">
+                                    <button class="btn btn-primary btn-large" id="btn-run-face-analysis">
+                                        <span class="material-symbols-rounded">analytics</span> Run Deep Face Analysis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Voice Attendance Panel -->
+                        <div id="panel-attendance-voice" class="attendance-panel-mode hidden">
+                            <div class="uploader-container glass-panel" id="voice-drop-zone">
+                                <span class="material-symbols-rounded upload-icon">spatial_audio</span>
+                                <h3>Voice Roll Call Recording</h3>
+                                <p>Upload classroom check-in audio, or record a bulk voice call live.</p>
+                                <input type="file" id="classroom-audio-input" accept="audio/*" class="hidden">
+                                
+                                <div class="voice-actions-group">
+                                    <button class="btn btn-secondary" id="btn-browse-audio">Browse Audio File</button>
+                                    <div class="voice-divider"><span>OR</span></div>
+                                    <button class="btn btn-primary btn-icon" id="btn-teacher-record-voice">
+                                        <span class="material-symbols-rounded" id="teacher-mic-icon">mic</span>
+                                        <span id="teacher-record-text">Start Live Recording</span>
+                                    </button>
+                                </div>
+                                
+                                <div class="recording-indicator hidden" id="teacher-recording-indicator">
+                                    <span class="pulse-dot"></span>
+                                    <span id="teacher-voice-timer">00:00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Results Section -->
+                        <div class="attendance-results-section glass-panel hidden" id="attendance-results-section">
+                            <div class="section-title-wrapper">
+                                <div>
+                                    <h3>AI Analysis Verification</h3>
+                                    <p class="results-meta">Verify results before logging attendance to Supabase.</p>
+                                </div>
+                                <div class="results-actions">
+                                    <button class="btn btn-secondary" id="btn-cancel-results">Cancel</button>
+                                    <button class="btn btn-primary" id="btn-save-attendance-submit">
+                                        <span class="material-symbols-rounded">check_circle</span> Commit Attendance
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="results-table-wrapper">
+                                <table class="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student ID</th>
+                                            <th>Name</th>
+                                            <th>Detection Detail</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-table-body">
+                                        <!-- Injected dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB B: MANAGE SUBJECTS -->
+                    <div id="tab-manage-subjects" class="tab-pane">
+                        <div class="tab-header-section-row">
+                            <div>
+                                <h2>Manage Subjects</h2>
+                                <p>Manage classes and view stats of students enrolled in your subjects.</p>
+                            </div>
+                            <button class="btn btn-primary btn-icon" id="btn-open-create-subject">
+                                <span class="material-symbols-rounded">add</span> Create New Subject
+                            </button>
+                        </div>
+
+                        <div class="subjects-grid" id="teacher-subjects-grid">
+                            <!-- Subject cards injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- TAB C: ATTENDANCE RECORDS -->
+                    <div id="tab-attendance-records" class="tab-pane">
+                        <div class="tab-header-section">
+                            <h2>Attendance Records Logs</h2>
+                            <p>Review and search through all finalized biometric attendance check-ins.</p>
+                        </div>
+
+                        <div class="records-analytics glass-panel">
+                            <h3>Attendance Trend Analysis</h3>
+                            <!-- SVG Chart -->
+                            <div class="chart-container" id="records-chart-container">
+                                <svg class="analytics-chart" viewBox="0 0 800 250" id="analytics-svg">
+                                    <!-- Injected dynamically -->
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- Logs list -->
+                        <div class="records-table-card glass-panel">
+                            <div class="table-header-filters">
+                                <h3>Historical Runs</h3>
+                                <div class="filter-controls">
+                                    <div class="search-box">
+                                        <span class="material-symbols-rounded">search</span>
+                                        <input type="text" id="record-search" placeholder="Filter by subject...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="results-table-wrapper">
+                                <table class="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Time & Date</th>
+                                            <th>Subject</th>
+                                            <th>Subject Code</th>
+                                            <th>Attendance Ratio</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="records-table-body">
+                                        <!-- Injected dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </main>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODAL 1: SUBJECT ENROLLMENT (STUDENT) ==================== -->
+    <div class="modal-overlay hidden" id="modal-enroll">
+        <div class="modal-box glass-panel">
+            <div class="modal-header">
+                <h2>Enroll in Course</h2>
+                <button class="btn-close-modal" id="btn-close-enroll-modal">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Choose an available course from the catalog to enroll yourself.</p>
+                <div class="enroll-catalog-wrapper">
+                    <table class="enroll-table">
+                        <thead>
+                            <tr>
+                                <th>Subject Code</th>
+                                <th>Subject Name</th>
+                                <th>Section</th>
+                                <th>Instructor</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="enroll-catalog-body">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL 2: CREATE SUBJECT (TEACHER) ==================== -->
+    <div class="modal-overlay hidden" id="modal-create-subject">
+        <div class="modal-box glass-panel small-modal-box">
+            <div class="modal-header">
+                <h2>Create New Subject</h2>
+                <button class="btn-close-modal" id="btn-close-subject-modal">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <form id="form-create-subject" class="modal-body">
+                <div class="input-group">
+                    <label for="new-subject-name">Subject Name</label>
+                    <input type="text" id="new-subject-name" placeholder="E.g. Artificial Intelligence" required>
+                </div>
+                <div class="input-group">
+                    <label for="new-subject-code">Subject Code</label>
+                    <input type="text" id="new-subject-code" placeholder="E.g. CSE-401" required>
+                </div>
+                <div class="input-group">
+                    <label for="new-subject-section">Section</label>
+                    <input type="text" id="new-subject-section" placeholder="E.g. A" required>
+                </div>
+                
+                <div class="modal-footer-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-create-subject">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Subject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL 3: VIEW ATTENDANCE SESSION DETAIL ==================== -->
+    <div class="modal-overlay hidden" id="modal-session-detail">
+        <div class="modal-box glass-panel">
+            <div class="modal-header">
+                <h2>Session Attendance Details</h2>
+                <button class="btn-close-modal" id="btn-close-detail-modal">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="session-detail-meta">
+                    <p><strong>Subject:</strong> <span id="detail-session-subject">AI</span></p>
+                    <p><strong>Time:</strong> <span id="detail-session-time">10:00 AM</span></p>
+                </div>
+                <div class="enroll-catalog-wrapper">
+                    <table class="enroll-table">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Student Name</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detail-session-body">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application -->
+    <script src="app.js"></script>
+</body>
+</html>
