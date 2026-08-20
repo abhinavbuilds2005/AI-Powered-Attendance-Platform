@@ -2,7 +2,7 @@
 // Adjust API URL base if your Render backend runs on a custom domain.
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
     ? 'http://127.0.0.1:8000/api' 
-    : `${window.location.origin.replace('5173', '8000')}/api`; // Auto fallback/relocate for local runtimes
+    : 'https://ai-powered-attendance-platform.onrender.com/api';
 
 const state = {
     currentScreen: 'screen-home',
