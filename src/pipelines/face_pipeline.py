@@ -39,7 +39,7 @@ def calculate_ear(eye_points):
 
 def verify_liveness_and_anti_spoof(images_np):
     """
-    Evaluates burst frames for natural human eye blinking (EAR) and facial dynamics.
+    Evaluates burst frames for natural human eye blink closure (EAR) and facial dynamics.
     Rejects static photos, paper printouts, and digital phone screens.
     """
     if not images_np:
@@ -67,13 +67,17 @@ def verify_liveness_and_anti_spoof(images_np):
     if len(ears) < 2:
         return True, "Single frame verified"
 
-    # Natural blink EAR range check
-    ear_range = max(ears) - min(ears)
-    
-    # A natural eye blink produces EAR delta >= 0.015
-    # Flat 2D static photos have ear_range < 0.01
-    if ear_range < 0.012:
-        return False, "⚠️ Anti-Spoofing: Static photo or phone screen detected. Please blink naturally in front of the camera."
+    ear_min = min(ears)
+    ear_max = max(ears)
+    ear_delta = ear_max - ear_min
+
+    # True blink check:
+    # 1. Delta between open and closed must be >= 0.038
+    # OR 2. One frame must capture a closed eye state (< 0.22) and another an open state (> 0.25)
+    is_live_blink = (ear_delta >= 0.038) or (ear_min < 0.22 and ear_max > 0.25)
+
+    if not is_live_blink:
+        return False, "⚠️ Anti-Spoofing: Static photo or phone screen detected. Please blink your eyes while scanning."
 
     return True, "Live human verified"
 

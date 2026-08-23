@@ -404,18 +404,24 @@ async function captureAndFaceLogin() {
   const video = document.getElementById('student-video');
   const canvas = document.getElementById('student-canvas');
   const btn = document.getElementById('btn-student-scan');
+  const badge = document.getElementById('liveness-badge');
+  const label = document.getElementById('liveness-label');
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-symbols-outlined">sync</span> 👁️ Verifying Live Human Blink...';
+  btn.innerHTML = '<span class="material-symbols-outlined">visibility</span> 👁️ BLINK YOUR EYES NOW...';
+  if (label) label.innerText = '👁️ Scanning: Please blink your eyes now!';
 
-  // Capture 3-frame burst over 350ms to analyze real eye blink motion
+  // Capture 4-frame burst over 550ms to catch natural eye closure
   const burstFrames = [];
   burstFrames.push(captureFrameAsBase64(video, canvas));
 
-  await new Promise(r => setTimeout(r, 160));
+  await new Promise(r => setTimeout(r, 175));
   burstFrames.push(captureFrameAsBase64(video, canvas));
 
-  await new Promise(r => setTimeout(r, 160));
+  await new Promise(r => setTimeout(r, 175));
+  burstFrames.push(captureFrameAsBase64(video, canvas));
+
+  await new Promise(r => setTimeout(r, 175));
   burstFrames.push(captureFrameAsBase64(video, canvas));
 
   try {
@@ -433,14 +439,12 @@ async function captureAndFaceLogin() {
     } else {
       showToast(data.message || 'Face not recognized.', 'error');
       if (data.status === 'spoof_detected') {
-        const badge = document.getElementById('liveness-badge');
-        const label = document.getElementById('liveness-label');
         if (badge) {
           badge.style.background = 'rgba(239, 68, 68, 0.95)';
           badge.style.color = 'white';
         }
-        if (label) label.innerText = '❌ Anti-Spoof: Static Photo/Screen Detected';
-        setTimeout(() => startLivenessDetection(), 3000);
+        if (label) label.innerText = '❌ Spoof Rejected: Static Phone/Photo Detected';
+        setTimeout(() => startLivenessDetection(), 3500);
       } else if (data.status === 'unrecognized') {
         window.lastCapturedFaceB64 = burstFrames[0];
         const msg = document.getElementById('reg-face-preview-msg');
