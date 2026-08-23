@@ -401,25 +401,28 @@ function switchStudentAuthMode(mode) {
 window.switchStudentAuthMode = switchStudentAuthMode;
 
 async function captureAndFaceLogin() {
-  if (!isLivenessVerified) {
-    showToast('⚠️ Anti-Spoofing: Live human presence required. Please blink or move your head to unlock.', 'error');
-    return;
-  }
-
   const video = document.getElementById('student-video');
   const canvas = document.getElementById('student-canvas');
   const btn = document.getElementById('btn-student-scan');
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-symbols-outlined">sync</span> Scanning FaceID...';
+  btn.innerHTML = '<span class="material-symbols-outlined">sync</span> 👁️ Verifying Live Human Blink...';
 
-  const base64Image = captureFrameAsBase64(video, canvas);
+  // Capture 3-frame burst over 350ms to analyze real eye blink motion
+  const burstFrames = [];
+  burstFrames.push(captureFrameAsBase64(video, canvas));
+
+  await new Promise(r => setTimeout(r, 160));
+  burstFrames.push(captureFrameAsBase64(video, canvas));
+
+  await new Promise(r => setTimeout(r, 160));
+  burstFrames.push(captureFrameAsBase64(video, canvas));
 
   try {
     const res = await fetch('/api/student/face-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: base64Image })
+      body: JSON.stringify({ images: burstFrames })
     });
     const data = await res.json();
 
@@ -429,8 +432,17 @@ async function captureAndFaceLogin() {
       loadStudentDashboard();
     } else {
       showToast(data.message || 'Face not recognized.', 'error');
-      if (data.status === 'unrecognized') {
-        window.lastCapturedFaceB64 = base64Image;
+      if (data.status === 'spoof_detected') {
+        const badge = document.getElementById('liveness-badge');
+        const label = document.getElementById('liveness-label');
+        if (badge) {
+          badge.style.background = 'rgba(239, 68, 68, 0.95)';
+          badge.style.color = 'white';
+        }
+        if (label) label.innerText = '❌ Anti-Spoof: Static Photo/Screen Detected';
+        setTimeout(() => startLivenessDetection(), 3000);
+      } else if (data.status === 'unrecognized') {
+        window.lastCapturedFaceB64 = burstFrames[0];
         const msg = document.getElementById('reg-face-preview-msg');
         if (msg) msg.innerText = '✅ Face photo automatically imported from scan!';
         switchStudentMainTab('register');

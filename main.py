@@ -127,12 +127,35 @@ async def login_teacher_endpoint(req: TeacherAuthRequest):
 # ---------------------- Student Biometrics Endpoints ---------------------- #
 @app.post("/api/student/face-login")
 async def student_face_login(payload: dict):
-    image_b64 = payload.get("image")
-    if not image_b64:
+    images_b64 = payload.get("images")
+    single_image = payload.get("image")
+
+    if not images_b64 and single_image:
+        images_b64 = [single_image]
+
+    if not images_b64:
         raise HTTPException(status_code=400, detail="Image frame is required.")
 
-    img_np = decode_base64_image(image_b64)
-    detected, all_ids, num_faces = predict_attendance(img_np)
+    # Decode burst frames
+    images_np = [decode_base64_image(b64) for b64 in images_b64 if b64]
+
+    if not images_np:
+        return {"success": False, "status": "no_face", "message": "No valid frames received."}
+
+    # Run 68-landmark Eye Aspect Ratio (EAR) Anti-Spoofing Check
+    from src.pipelines.face_pipeline import verify_liveness_and_anti_spoof
+    is_live, liveness_msg = verify_liveness_and_anti_spoof(images_np)
+
+    if not is_live:
+        return {
+            "success": False,
+            "status": "spoof_detected",
+            "message": liveness_msg
+        }
+
+    # Face Recognition on primary frame
+    primary_img = images_np[0]
+    detected, all_ids, num_faces = predict_attendance(primary_img)
 
     if num_faces == 0:
         return {"success": False, "status": "no_face", "message": "No face detected in camera viewfinder."}
@@ -144,7 +167,6 @@ async def student_face_login(payload: dict):
         all_students = get_all_students() or []
         student = next((s for s in all_students if s['student_id'] == student_id), None)
         if student:
-            # Clean safe response
             student_safe = {
                 "student_id": student["student_id"],
                 "name": student["name"],

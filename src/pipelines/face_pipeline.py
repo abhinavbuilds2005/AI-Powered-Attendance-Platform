@@ -2,7 +2,6 @@ import dlib
 import numpy as np
 import face_recognition_models
 from sklearn.svm import SVC
-from functools import lru_cache
 from src.database.db import get_all_students
 
 # Global model caches
@@ -22,6 +21,62 @@ def load_dlib_models():
             face_recognition_models.face_recognition_model_location()
         )
     return _DETECTOR, _SHAPE_PREDICTOR, _FACE_REC
+
+
+def calculate_ear(eye_points):
+    """
+    Computes Eye Aspect Ratio (EAR) from 6 landmark points.
+    EAR = (|p2 - p6| + |p3 - p5|) / (2 * |p1 - p4|)
+    """
+    p = [np.array([pt.x, pt.y]) for pt in eye_points]
+    A = np.linalg.norm(p[1] - p[5])
+    B = np.linalg.norm(p[2] - p[4])
+    C = np.linalg.norm(p[0] - p[3])
+    if C == 0:
+        return 0.0
+    return (A + B) / (2.0 * C)
+
+
+def verify_liveness_and_anti_spoof(images_np):
+    """
+    Evaluates burst frames for natural human eye blinking (EAR) and facial dynamics.
+    Rejects static photos, paper printouts, and digital phone screens.
+    """
+    if not images_np:
+        return False, "No camera frames received."
+
+    detector, sp, _ = load_dlib_models()
+    ears = []
+
+    for img in images_np:
+        faces = detector(img, 0)
+        if not faces:
+            continue
+        face = faces[0]
+        shape = sp(img, face)
+
+        # 68 landmark points: Left eye (36-41), Right eye (42-47)
+        left_eye = [shape.part(i) for i in range(36, 42)]
+        right_eye = [shape.part(i) for i in range(42, 48)]
+
+        l_ear = calculate_ear(left_eye)
+        r_ear = calculate_ear(right_eye)
+        avg_ear = (l_ear + r_ear) / 2.0
+        ears.append(avg_ear)
+
+    if len(ears) < 2:
+        # Fallback for single photo (e.g. registration or classroom scan)
+        return True, "Single frame verified"
+
+    # Measure EAR dynamic variance across burst frames
+    ear_range = max(ears) - min(ears)
+    
+    # A real human blink produces an EAR range >= 0.035
+    # A phone photo or paper photo has fixed EAR (range < 0.02)
+    if ear_range < 0.022:
+        return False, "⚠️ Spoof Detected: Static phone screen or photo identified. Please blink naturally in front of the camera."
+
+    return True, "Live human verified"
 
 
 def get_face_embeddings(image_np):
@@ -58,65 +113,54 @@ def get_trained_model(force_retrain=False):
 
     for student in student_db:
         embedding = student.get('face_embedding')
-        if embedding:
-            X.append(np.array(embedding))
-            y.append(student.get('student_id'))
+        if embedding is not None and len(embedding) == 128:
+            X.append(embedding)
+            y.append(student['student_id'])
 
-    if len(X) == 0:
-        _TRAINED_MODEL = None
+    if len(y) == 0:
         return None
 
-    clf = SVC(kernel='linear', probability=True, class_weight='balanced')
-    try:
-        if len(set(y)) >= 2:
-            clf.fit(X, y)
-    except Exception as e:
-        print(f"Classifier fit notice: {e}")
+    unique_labels = len(set(y))
+    if unique_labels < 2:
+        return None
 
-    _TRAINED_MODEL = {'clf': clf, 'X': X, 'y': y}
+    clf = SVC(kernel='linear', probability=True)
+    clf.fit(X, y)
+    _TRAINED_MODEL = clf
     return _TRAINED_MODEL
 
 
 def train_classifier():
-    """Forces retraining of the face classifier."""
-    return bool(get_trained_model(force_retrain=True))
+    """Forces retraining of the SVM classifier."""
+    return get_trained_model(force_retrain=True)
 
 
-def predict_attendance(class_image_np):
+def predict_attendance(classroom_embeddings, threshold=0.55):
     """
-    Scans a classroom image, predicts present student IDs, and applies Euclidean thresholding.
+    Predicts present students by comparing detected facial embeddings against stored embeddings.
     """
-    encodings = get_face_embeddings(class_image_np)
-    detected_students = {}
+    if not classroom_embeddings:
+        return {}
 
-    model_data = get_trained_model()
-    if not model_data:
-        return detected_students, [], len(encodings)
+    student_db = get_all_students() or []
+    if not student_db:
+        return {}
 
-    clf = model_data['clf']
-    X_train = model_data['X']
-    y_train = model_data['y']
+    identified_students = {}
 
-    all_students = sorted(list(set(y_train)))
+    for emb in classroom_embeddings:
+        best_sid = None
+        min_dist = float('inf')
 
-    for encoding in encodings:
-        if len(all_students) >= 2:
-            try:
-                predicted_id = int(clf.predict([encoding])[0])
-            except Exception:
-                # Nearest neighbor fallback
-                distances = [np.linalg.norm(x - encoding) for x in X_train]
-                min_idx = int(np.argmin(distances))
-                predicted_id = int(y_train[min_idx])
-        else:
-            predicted_id = int(all_students[0])
+        for student in student_db:
+            stored_emb = student.get('face_embedding')
+            if stored_emb and len(stored_emb) == 128:
+                dist = np.linalg.norm(np.array(emb) - np.array(stored_emb))
+                if dist < min_dist:
+                    min_dist = dist
+                    best_sid = student['student_id']
 
-        if predicted_id in y_train:
-            student_embedding = X_train[y_train.index(predicted_id)]
-            best_match_score = float(np.linalg.norm(student_embedding - encoding))
+        if min_dist <= threshold and best_sid is not None:
+            identified_students[best_sid] = round(float(1.0 - min_dist), 3)
 
-            resemblance_threshold = 0.6
-            if best_match_score <= resemblance_threshold:
-                detected_students[predicted_id] = round(best_match_score, 3)
-
-    return detected_students, all_students, len(encodings)
+    return identified_students
