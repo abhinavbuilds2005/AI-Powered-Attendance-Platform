@@ -202,20 +202,28 @@ async def student_voice_login(payload: dict):
 
         # If user specified or spoke target student name/ID
         if target_query:
+            import re
             target_matches = []
             for s in all_students:
                 if not s.get("voice_embedding"):
                     continue
                 s_name = s["name"].lower()
                 s_id = str(s["student_id"])
-                # Match if query equals ID or query in name or any name word in query (e.g. "abhinav" in "my name is abhinav anand")
-                if s_id == target_query or s_name in target_query or any(part in target_query for part in s_name.split() if len(part) >= 3):
+                name_tokens = [w for w in s_name.split() if len(w) >= 3]
+
+                # Match if exact ID or whole word name appears in target_query
+                is_id_match = (s_id == target_query)
+                is_name_match = (s_name == target_query) or any(
+                    re.search(r'\b' + re.escape(token) + r'\b', target_query) for token in name_tokens
+                )
+
+                if is_id_match or is_name_match:
                     target_matches.append(s)
 
             if target_matches:
                 target_dict = {s["student_id"]: s["voice_embedding"] for s in target_matches}
                 matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.45)
-                print(f"VoiceID Spoken-Name Scan: Found matches {[s['name'] for s in target_matches]} -> matched ID {matched_id}, score: {score:.3f}")
+                print(f"VoiceID Spoken-Name Scan: Matched {[s['name'] for s in target_matches]} -> ID {matched_id}, score: {score:.3f}")
 
                 if matched_id:
                     matched_student = next((s for s in target_matches if s["student_id"] == matched_id), target_matches[0])
