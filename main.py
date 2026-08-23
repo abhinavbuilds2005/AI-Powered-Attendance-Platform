@@ -100,6 +100,11 @@ async def serve_index():
     return HTMLResponse("<h1>PresentAI API is running. Please load static/index.html</h1>")
 
 
+@app.head("/")
+async def check_root():
+    return Response(status_code=200)
+
+
 # ---------------------- Teacher Auth Endpoints ---------------------- #
 @app.post("/api/auth/teacher/register")
 async def register_teacher_endpoint(req: TeacherAuthRequest):
