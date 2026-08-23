@@ -182,21 +182,24 @@ window.closeModal = closeModal;
 
 // ==================== GEOLOCATION VERIFICATION ==================== //
 function initGeoLocation() {
-  const geoLabel = document.getElementById('geo-status-label');
+  const geoLabels = [
+    document.getElementById('geo-status-label'),
+    document.getElementById('geo-status-label-voice')
+  ].filter(Boolean);
   if (!navigator.geolocation) {
-    if (geoLabel) geoLabel.innerText = '📍 Geolocation: Not supported';
+    geoLabels.forEach(label => { label.innerText = '📍 Geolocation: Not supported'; });
     return;
   }
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       userCoordinates = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      if (geoLabel) {
-        geoLabel.innerHTML = `📍 Campus Location: <strong>Verified</strong> (${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°)`;
-      }
+      geoLabels.forEach(label => {
+        label.innerHTML = `📍 Campus Location: <strong>Verified</strong> (${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°)`;
+      });
     },
     () => {
-      if (geoLabel) geoLabel.innerText = '📍 Location Permission Granted (Campus Zone)';
+      geoLabels.forEach(label => { label.innerText = '📍 Location Permission Granted (Campus Zone)'; });
     },
     { enableHighAccuracy: true, timeout: 6000 }
   );
@@ -381,21 +384,6 @@ function switchStudentMainTab(tab) {
 }
 window.switchStudentMainTab = switchStudentMainTab;
 
-let currentVoiceChallenge = { word: 'ALPHA', num: '4921', phrase: 'PresentAI ALPHA 4921' };
-
-function generateVoiceChallengePhrase() {
-  const words = ['ALPHA', 'DELTA', 'ECHO', 'NOVA', 'PRIME', 'VECTOR', 'ORBIT', 'PULSE'];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const num = String(Math.floor(1000 + Math.random() * 9000));
-  const phrase = `PresentAI ${word} ${num}`;
-  currentVoiceChallenge = { word, num, phrase };
-
-  const el = document.getElementById('voice-challenge-phrase');
-  if (el) el.innerText = `"${phrase}"`;
-  return phrase;
-}
-window.generateVoiceChallengePhrase = generateVoiceChallengePhrase;
-
 function switchStudentAuthMode(mode) {
   const faceContainer = document.getElementById('student-face-container');
   const voiceContainer = document.getElementById('student-voice-container');
@@ -416,7 +404,7 @@ function switchStudentAuthMode(mode) {
     if (voiceContainer) voiceContainer.style.display = 'block';
     if (tabFace) tabFace.classList.remove('active');
     if (tabVoice) tabVoice.classList.add('active');
-    generateVoiceChallengePhrase();
+    initGeoLocation();
   }
 }
 window.switchStudentAuthMode = switchStudentAuthMode;
@@ -502,6 +490,7 @@ let studentAuthTimerInterval = null;
 let studentAuthSeconds = 0;
 let voiceSpeechTranscript = '';
 let backgroundSpeechRecognizer = null;
+let speechRecognitionFinished = null;
 
 async function toggleStudentVoiceAuth() {
   const micIcon = document.getElementById('s-mic-icon');
@@ -520,8 +509,13 @@ async function toggleStudentVoiceAuth() {
     try {
       const wavBase64 = await studentAuthRecorder.stop();
       studentAuthRecorder = null;
-      await new Promise(r => setTimeout(r, 200));
-      await sendStudentVoiceLogin(wavBase64, currentVoiceChallenge.phrase);
+      if (speechRecognitionFinished) {
+        await Promise.race([
+          speechRecognitionFinished,
+          new Promise(resolve => setTimeout(resolve, 1200))
+        ]);
+      }
+      await sendStudentVoiceLogin(wavBase64);
     } catch (err) {
       showToast('Error finalizing voice recording.', 'error');
     } finally {
@@ -547,6 +541,10 @@ async function toggleStudentVoiceAuth() {
             }
             voiceSpeechTranscript = t;
           };
+          speechRecognitionFinished = new Promise(resolve => {
+            backgroundSpeechRecognizer.onend = resolve;
+            backgroundSpeechRecognizer.onerror = resolve;
+          });
           backgroundSpeechRecognizer.start();
         } catch (e) {}
       }
@@ -571,8 +569,10 @@ async function toggleStudentVoiceAuth() {
 }
 window.toggleStudentVoiceAuth = toggleStudentVoiceAuth;
 
-async function sendStudentVoiceLogin(base64Audio, phrase) {
-  let targetStudent = document.getElementById('voice-target-student')?.value?.trim() || '';
+async function sendStudentVoiceLogin(base64Audio) {
+  const typedTargetStudent = document.getElementById('voice-target-student')?.value?.trim() || '';
+  let targetStudent = typedTargetStudent;
+  const spokenTranscript = voiceSpeechTranscript.trim();
 
   // If student didn't type name, use any name detected in the spoken speech!
   if (!targetStudent && voiceSpeechTranscript) {
@@ -583,7 +583,11 @@ async function sendStudentVoiceLogin(base64Audio, phrase) {
     const res = await fetch('/api/student/voice-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio: base64Audio, challenge_phrase: phrase, target_student: targetStudent })
+      body: JSON.stringify({
+        audio: base64Audio,
+        target_student: targetStudent,
+        target_explicit: Boolean(typedTargetStudent)
+      })
     });
     const data = await res.json();
     if (res.ok && data.success && data.student) {
@@ -592,11 +596,9 @@ async function sendStudentVoiceLogin(base64Audio, phrase) {
       loadStudentDashboard();
     } else {
       showToast(data.message || 'Voice not recognized.', 'error');
-      generateVoiceChallengePhrase();
     }
   } catch (err) {
     showToast('Network error during voice authentication.', 'error');
-    generateVoiceChallengePhrase();
   }
 }
 
@@ -1129,6 +1131,10 @@ async function runClassroomFaceScan() {
     });
     const data = await res.json();
     if (res.ok) {
+      if (!data.results || data.results.length === 0) {
+        showToast(data.message || 'No students are enrolled in this course.', 'error');
+        return;
+      }
       showAttendanceResultsModal(data.results, data.logs);
     } else {
       showToast(data.detail || 'Scan failed.', 'error');
@@ -1213,6 +1219,11 @@ async function runVoiceAttendanceScan() {
     });
     const data = await res.json();
     if (res.ok) {
+      if (!data.results || data.results.length === 0) {
+        closeModal('modal-voice-attendance');
+        showToast(data.message || 'No students are enrolled in this course.', 'error');
+        return;
+      }
       closeModal('modal-voice-attendance');
       showAttendanceResultsModal(data.results, data.logs, data.message);
     } else {

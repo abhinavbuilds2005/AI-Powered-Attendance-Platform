@@ -79,7 +79,7 @@ def get_voice_embedding(audio_bytes):
         return None
 
 
-def identify_speaker(new_embedding, candidates_dict, threshold=0.58):
+def identify_speaker(new_embedding, candidates_dict, threshold=0.58, min_margin=0.0):
     """
     Compares a new embedding against candidate voice profiles using cosine similarity.
     """
@@ -88,6 +88,7 @@ def identify_speaker(new_embedding, candidates_dict, threshold=0.58):
 
     best_sid = None
     best_score = -1.0
+    second_best_score = -1.0
 
     norm_new = np.linalg.norm(new_embedding)
     if norm_new == 0:
@@ -101,10 +102,13 @@ def identify_speaker(new_embedding, candidates_dict, threshold=0.58):
                 continue
             similarity = float(np.dot(new_embedding, stored_arr) / (norm_new * norm_stored))
             if similarity > best_score:
+                second_best_score = best_score
                 best_score = similarity
                 best_sid = sid
+            elif similarity > second_best_score:
+                second_best_score = similarity
 
-    if best_score >= threshold:
+    if best_score >= threshold and best_score - second_best_score >= min_margin:
         return best_sid, best_score
 
     return None, best_score

@@ -1,6 +1,7 @@
 import os
 import io
 import base64
+import re
 from datetime import datetime
 from typing import List, Optional
 import numpy as np
@@ -199,14 +200,12 @@ async def student_voice_login(payload: dict):
 
         all_students = get_all_students() or []
         target_query = (payload.get("target_student") or "").strip().lower()
+        target_explicit = bool(payload.get("target_explicit"))
 
         # If user specified or spoke target student name/ID
         if target_query:
-            import re
             target_matches = []
             for s in all_students:
-                if not s.get("voice_embedding"):
-                    continue
                 s_name = s["name"].lower()
                 s_id = str(s["student_id"])
                 name_tokens = [w for w in s_name.split() if len(w) >= 3]
@@ -222,7 +221,7 @@ async def student_voice_login(payload: dict):
 
             if target_matches:
                 target_dict = {s["student_id"]: s["voice_embedding"] for s in target_matches}
-                matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.45)
+                matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.75)
                 print(f"VoiceID Spoken-Name Scan: Matched {[s['name'] for s in target_matches]} -> ID {matched_id}, score: {score:.3f}")
 
                 if matched_id:
@@ -246,6 +245,13 @@ async def student_voice_login(payload: dict):
                         "message": f"Voiceprint does not match registered profile for {target_matches[0]['name']} ({round(score * 100, 1)}% match)."
                     }
 
+            if target_explicit:
+                return {
+                    "success": False,
+                    "status": "mismatch",
+                    "message": "The requested student could not be verified by voice."
+                }
+
         # 1:N Automatic Matching across all candidates
         candidates_dict = {
             s["student_id"]: s["voice_embedding"]
@@ -255,7 +261,7 @@ async def student_voice_login(payload: dict):
         if not candidates_dict:
             return {"success": False, "message": "No students have registered voice biometric profiles yet."}
 
-        matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.48)
+        matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.65, min_margin=0.05)
         print(f"VoiceID 1:N Scan: Best match student {matched_id} with score {score:.3f} against {len(candidates_dict)} profiles")
 
         if matched_id:
