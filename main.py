@@ -185,6 +185,14 @@ async def student_voice_login(payload: dict):
 
     try:
         audio_bytes = decode_base64_audio(audio_b64)
+
+        from src.pipelines.voice_pipeline import load_audio_array, check_voice_liveness_and_anti_replay, identify_speaker
+        audio_arr, sr = load_audio_array(audio_bytes)
+        is_live_voice, liveness_msg = check_voice_liveness_and_anti_replay(audio_arr, sr)
+
+        if not is_live_voice:
+            return {"success": False, "status": "spoof_detected", "message": liveness_msg}
+
         new_emb = get_voice_embedding(audio_bytes)
         if not new_emb:
             return {"success": False, "message": "Could not extract voice features. Please speak clearly."}
@@ -198,7 +206,6 @@ async def student_voice_login(payload: dict):
         if not candidates_dict:
             return {"success": False, "message": "No students have registered voice biometric profiles yet."}
 
-        from src.pipelines.voice_pipeline import identify_speaker
         matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.65)
 
         if matched_id:

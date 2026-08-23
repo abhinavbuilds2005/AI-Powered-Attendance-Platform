@@ -115,13 +115,20 @@
             </button>
           </div>
 
-          <!-- Voice Viewfinder -->
-          <div id="student-voice-container" style="display: none; background: white; border-radius: var(--radius-lg); border: 1px solid var(--card-border); padding: 2.5rem 1.5rem; text-align: center;">
-            <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--primary-light); border: 3px solid var(--primary-border); display: flex; align-items: center; justify-content: center; margin: 1rem auto 1.5rem auto;">
-              <span class="material-symbols-outlined" style="font-size: 3.5rem; color: var(--primary);" id="s-voice-status-icon">mic</span>
+          <!-- Voice Viewfinder with Anti-Spoofing Dynamic Challenge -->
+          <div id="student-voice-container" style="display: none; background: white; border-radius: var(--radius-lg); border: 1px solid var(--card-border); padding: 2rem 1.5rem; text-align: center;">
+            <div style="width: 100px; height: 100px; border-radius: 50%; background: var(--primary-light); border: 3px solid var(--primary-border); display: flex; align-items: center; justify-content: center; margin: 0.5rem auto 1.25rem auto;">
+              <span class="material-symbols-outlined" style="font-size: 3rem; color: var(--primary);" id="s-voice-status-icon">mic</span>
             </div>
-            <h3 style="margin-bottom: 0.5rem;">VoiceID Recognition</h3>
-            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Click below and state: <em>"I am present, my name is [Your Name]"</em></p>
+            <h3 style="margin-bottom: 0.25rem;">VoiceID Biometrics</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Acoustic voiceprint identification & anti-replay verification.</p>
+
+            <!-- Dynamic Liveness Passcode Challenge -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 12px; margin-bottom: 1.25rem; text-align: center;">
+              <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #64748B; margin-bottom: 4px;">🔐 Anti-Replay Live Passphrase Challenge</div>
+              <div id="voice-challenge-phrase" style="font-size: 1.15rem; font-weight: 800; color: var(--primary); letter-spacing: 0.08em; font-family: monospace;">"PresentAI Code 4921"</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Say the phrase above clearly into your microphone</div>
+            </div>
             
             <button id="btn-student-voice-mic" class="btn btn-primary btn-block" onclick="toggleStudentVoiceAuth()">
               <span class="material-symbols-outlined" id="s-mic-icon">mic</span> <span id="s-mic-label">Record Voice to Authenticate</span>

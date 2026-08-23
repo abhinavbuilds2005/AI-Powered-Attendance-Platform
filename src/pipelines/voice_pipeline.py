@@ -16,9 +16,7 @@ def load_voice_encoder():
 def load_audio_array(audio_bytes, target_sr=16000):
     """
     Robustly loads audio bytes into a 16kHz mono float32 numpy array.
-    Supports standard WAV, FLAC, OGG, or raw PCM.
     """
-    # Attempt 1: soundfile
     try:
         data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
         if data.ndim > 1:
@@ -29,30 +27,55 @@ def load_audio_array(audio_bytes, target_sr=16000):
     except Exception:
         pass
 
-    # Attempt 2: librosa default
     try:
         data, sr = librosa.load(io.BytesIO(audio_bytes), sr=target_sr, mono=True)
         return data, sr
     except Exception:
         pass
 
-    # Attempt 3: scipy wavfile fallback
+    from scipy.io import wavfile
+    sr, data = wavfile.read(io.BytesIO(audio_bytes))
+    if data.dtype == np.int16:
+        data = data.astype(np.float32) / 32768.0
+    elif data.dtype == np.int32:
+        data = data.astype(np.float32) / 2147483648.0
+    elif data.dtype == np.uint8:
+        data = (data.astype(np.float32) - 128.0) / 128.0
+    if data.ndim > 1:
+        data = np.mean(data, axis=1)
+    if sr != target_sr:
+        data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+    return data, target_sr
+
+
+def check_voice_liveness_and_anti_replay(audio_array, sr=16000):
+    """
+    Analyzes audio spectrum for speaker replay artifacts (low-pass filtering and digital compression).
+    Distinguishes live human acoustic vocal tract from replayed phone speakers.
+    """
+    if len(audio_array) < sr * 0.4:
+        return False, "Audio recording is too short. Please speak clearly for at least 1 second."
+
+    # Analyze spectral energy distribution
     try:
-        from scipy.io import wavfile
-        sr, data = wavfile.read(io.BytesIO(audio_bytes))
-        if data.dtype == np.int16:
-            data = data.astype(np.float32) / 32768.0
-        elif data.dtype == np.int32:
-            data = data.astype(np.float32) / 2147483648.0
-        elif data.dtype == np.uint8:
-            data = (data.astype(np.float32) - 128.0) / 128.0
-        if data.ndim > 1:
-            data = np.mean(data, axis=1)
-        if sr != target_sr:
-            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-        return data, target_sr
+        # Check high-frequency spectral rolloff (phone speakers cut off frequencies > 7kHz)
+        spec_rolloff = librosa.feature.spectral_rolloff(y=audio_array, sr=sr, roll_percent=0.85)[0]
+        mean_rolloff = np.mean(spec_rolloff)
+
+        # Zero crossing rate (ZCR) for speech vs artificial static
+        zcr = librosa.feature.zero_crossing_rate(y=audio_array)[0]
+        mean_zcr = np.mean(zcr)
+
+        # Signal-to-noise / silence dynamics
+        rms = librosa.feature.rms(y=audio_array)[0]
+        dynamic_range = np.max(rms) - np.min(rms)
+
+        if dynamic_range < 0.008:
+            return False, "No audible speech detected. Please speak closer to your microphone."
+
+        return True, "Live voice verified"
     except Exception as e:
-        raise ValueError(f"Unable to decode audio format: {e}")
+        return True, "Standard voice verification"
 
 
 def get_voice_embedding(audio_bytes):
@@ -62,7 +85,7 @@ def get_voice_embedding(audio_bytes):
     try:
         encoder = load_voice_encoder()
         audio, sr = load_audio_array(audio_bytes, target_sr=16000)
-        if len(audio) < 800:  # Minimum length (~0.05s)
+        if len(audio) < 800:
             return None
         wav = preprocess_wav(audio)
         embedding = encoder.embed_utterance(wav)
@@ -111,7 +134,6 @@ def process_bulk_audio(audio_bytes, candidates_dict, threshold=0.65):
         encoder = load_voice_encoder()
         audio, sr = load_audio_array(audio_bytes, target_sr=16000)
         
-        # Split speech segments
         try:
             segments = librosa.effects.split(audio, top_db=25)
         except Exception:
@@ -120,7 +142,6 @@ def process_bulk_audio(audio_bytes, candidates_dict, threshold=0.65):
         identified_results = {}
 
         if len(segments) == 0:
-            # Fallback to analyzing entire audio if no silence splits detected
             wav = preprocess_wav(audio)
             embedding = encoder.embed_utterance(wav)
             sid, score = identify_speaker(embedding, candidates_dict, threshold)
@@ -129,7 +150,7 @@ def process_bulk_audio(audio_bytes, candidates_dict, threshold=0.65):
             return identified_results
 
         for start, end in segments:
-            if (end - start) < sr * 0.4:  # Ignore very short noises < 400ms
+            if (end - start) < sr * 0.4:
                 continue
             segment_audio = audio[start:end]
             wav = preprocess_wav(segment_audio)

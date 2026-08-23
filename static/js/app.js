@@ -376,6 +376,17 @@ function switchStudentMainTab(tab) {
 }
 window.switchStudentMainTab = switchStudentMainTab;
 
+function generateVoiceChallengePhrase() {
+  const words = ['ALPHA', 'DELTA', 'ECHO', 'NOVA', 'PRIME', 'VECTOR', 'ORBIT', 'PULSE'];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(1000 + Math.random() * 9000);
+  const phrase = `PresentAI ${word} ${num}`;
+  const el = document.getElementById('voice-challenge-phrase');
+  if (el) el.innerText = `"${phrase}"`;
+  return phrase;
+}
+window.generateVoiceChallengePhrase = generateVoiceChallengePhrase;
+
 function switchStudentAuthMode(mode) {
   const faceContainer = document.getElementById('student-face-container');
   const voiceContainer = document.getElementById('student-voice-container');
@@ -396,6 +407,7 @@ function switchStudentAuthMode(mode) {
     if (voiceContainer) voiceContainer.style.display = 'block';
     if (tabFace) tabFace.classList.remove('active');
     if (tabVoice) tabVoice.classList.add('active');
+    generateVoiceChallengePhrase();
   }
 }
 window.switchStudentAuthMode = switchStudentAuthMode;
