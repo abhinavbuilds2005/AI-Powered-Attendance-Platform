@@ -34,7 +34,7 @@ def calculate_ear(eye_points):
     C = np.linalg.norm(p[0] - p[3])
     if C == 0:
         return 0.0
-    return (A + B) / (2.0 * C)
+    return float((A + B) / (2.0 * C))
 
 
 def verify_liveness_and_anti_spoof(images_np):
@@ -65,16 +65,15 @@ def verify_liveness_and_anti_spoof(images_np):
         ears.append(avg_ear)
 
     if len(ears) < 2:
-        # Fallback for single photo (e.g. registration or classroom scan)
         return True, "Single frame verified"
 
-    # Measure EAR dynamic variance across burst frames
+    # Natural blink EAR range check
     ear_range = max(ears) - min(ears)
     
-    # A real human blink produces an EAR range >= 0.035
-    # A phone photo or paper photo has fixed EAR (range < 0.02)
-    if ear_range < 0.022:
-        return False, "⚠️ Spoof Detected: Static phone screen or photo identified. Please blink naturally in front of the camera."
+    # A natural eye blink produces EAR delta >= 0.015
+    # Flat 2D static photos have ear_range < 0.01
+    if ear_range < 0.012:
+        return False, "⚠️ Anti-Spoofing: Static photo or phone screen detected. Please blink naturally in front of the camera."
 
     return True, "Live human verified"
 
@@ -135,20 +134,31 @@ def train_classifier():
     return get_trained_model(force_retrain=True)
 
 
-def predict_attendance(classroom_embeddings, threshold=0.55):
+def predict_attendance(image_or_embeddings, threshold=0.55):
     """
-    Predicts present students by comparing detected facial embeddings against stored embeddings.
+    Predicts present students. Accepts either an RGB numpy image or list of 128D embeddings.
+    Returns (detected_dict, all_student_ids, num_faces_detected).
     """
-    if not classroom_embeddings:
-        return {}
+    if isinstance(image_or_embeddings, np.ndarray) and image_or_embeddings.ndim == 3:
+        embeddings = get_face_embeddings(image_or_embeddings)
+        num_faces = len(embeddings)
+    elif isinstance(image_or_embeddings, list):
+        embeddings = image_or_embeddings
+        num_faces = len(embeddings)
+    else:
+        embeddings = []
+        num_faces = 0
+
+    if num_faces == 0:
+        return {}, [], 0
 
     student_db = get_all_students() or []
     if not student_db:
-        return {}
+        return {}, [], num_faces
 
     identified_students = {}
 
-    for emb in classroom_embeddings:
+    for emb in embeddings:
         best_sid = None
         min_dist = float('inf')
 
@@ -163,4 +173,4 @@ def predict_attendance(classroom_embeddings, threshold=0.55):
         if min_dist <= threshold and best_sid is not None:
             identified_students[best_sid] = round(float(1.0 - min_dist), 3)
 
-    return identified_students
+    return identified_students, list(identified_students.keys()), num_faces
