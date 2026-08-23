@@ -296,11 +296,15 @@ async def student_register_endpoint(payload: dict):
     image_b64 = payload.get("image")
     audio_b64 = payload.get("audio")
 
-    if not name or not image_b64:
+    if not isinstance(name, str) or not name.strip() or not image_b64:
         raise HTTPException(status_code=400, detail="Name and camera face capture are required.")
 
-    img_np = decode_base64_image(image_b64)
-    encodings = get_face_embeddings(img_np)
+    try:
+        img_np = decode_base64_image(image_b64)
+        encodings = get_face_embeddings(img_np)
+    except Exception as e:
+        print(f"Face enrollment error: {e}")
+        raise HTTPException(status_code=400, detail="Could not process the face photo. Please retake it.")
 
     if not encodings:
         raise HTTPException(status_code=400, detail="Could not detect facial landmarks. Please retake photo.")
@@ -318,7 +322,6 @@ async def student_register_endpoint(payload: dict):
     try:
         response_data = create_student(name.strip(), face_embedding=face_emb, voice_embedding=voice_emb)
         if response_data:
-            train_classifier()
             student = response_data[0]
             student_safe = {
                 "student_id": student["student_id"],
