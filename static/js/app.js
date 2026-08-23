@@ -476,7 +476,10 @@ function captureRegistrationFace() {
   const msg = document.getElementById('reg-face-preview-msg');
   const btnLabel = document.getElementById('reg-snap-label');
 
-  if (!video || !canvas) return;
+  if (!video || !canvas || video.readyState < 2 || !video.videoWidth) {
+    showToast('Camera is still starting. Please wait and try again.', 'error');
+    return;
+  }
   const b64 = captureFrameAsBase64(video, canvas);
   window.lastCapturedFaceB64 = b64;
   if (msg) msg.innerText = '✅ Face photo captured successfully!';
@@ -649,7 +652,9 @@ async function toggleVoiceRecording() {
 window.toggleVoiceRecording = toggleVoiceRecording;
 
 async function submitStudentRegistration() {
-  const name = document.getElementById('reg-student-name').value.trim();
+  const nameInput = document.getElementById('reg-student-name');
+  const submitButton = document.getElementById('btn-complete-registration');
+  const name = nameInput?.value.trim() || '';
   const faceImage = window.lastCapturedFaceB64;
 
   if (!name) {
@@ -659,6 +664,11 @@ async function submitStudentRegistration() {
   if (!faceImage) {
     showToast('Please snap your face photo using the camera viewfinder.', 'error');
     return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Creating Profile...';
   }
 
   try {
@@ -671,16 +681,22 @@ async function submitStudentRegistration() {
         audio: recordedVoiceBase64
       })
     });
-    const data = await res.json();
-    if (data.success && data.student) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && data.student) {
       currentStudent = data.student;
       showToast(data.message || 'Profile created successfully!', 'success');
       loadStudentDashboard();
     } else {
-      showToast(data.detail || 'Registration failed.', 'error');
+      showToast(data.detail || data.message || `Registration failed (${res.status}).`, 'error');
     }
   } catch (err) {
-    showToast('Network error creating profile.', 'error');
+    console.error('Student registration error:', err);
+    showToast('Could not reach the registration server. Please try again.', 'error');
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> Complete Profile Registration';
+    }
   }
 }
 window.submitStudentRegistration = submitStudentRegistration;
