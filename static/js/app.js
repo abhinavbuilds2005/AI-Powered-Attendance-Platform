@@ -26,14 +26,18 @@ class WavAudioRecorder {
     this.input = null;
     this.leftchannel = [];
     this.recordingLength = 0;
-    this.sampleRate = 16000;
+    this.sampleRate = 44100;
     this.isRecording = false;
   }
 
   async start() {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    this.audioContext = new AudioContextClass({ sampleRate: this.sampleRate });
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: this.sampleRate } });
+    this.audioContext = new AudioContextClass();
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+    this.sampleRate = this.audioContext.sampleRate || 44100;
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.input = this.audioContext.createMediaStreamSource(this.mediaStream);
     this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
     this.leftchannel = [];
@@ -80,17 +84,18 @@ class WavAudioRecorder {
       }
     }
 
+    const byteRate = this.sampleRate * 2;
     writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + flatSamples.length * 2, true);
     writeString(view, 8, 'WAVE');
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, 16000, true);
-    view.setUint32(28, 32000, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
+    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(22, 1, true); // Mono channel
+    view.setUint32(24, this.sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, 2, true); // Block align
+    view.setUint16(34, 16, true); // Bits per sample
     writeString(view, 36, 'data');
     view.setUint32(40, flatSamples.length * 2, true);
 
