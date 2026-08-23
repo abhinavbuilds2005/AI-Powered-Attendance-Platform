@@ -381,11 +381,15 @@ function switchStudentMainTab(tab) {
 }
 window.switchStudentMainTab = switchStudentMainTab;
 
+let currentVoiceChallenge = { word: 'ALPHA', num: '4921', phrase: 'PresentAI ALPHA 4921' };
+
 function generateVoiceChallengePhrase() {
   const words = ['ALPHA', 'DELTA', 'ECHO', 'NOVA', 'PRIME', 'VECTOR', 'ORBIT', 'PULSE'];
   const word = words[Math.floor(Math.random() * words.length)];
-  const num = Math.floor(1000 + Math.random() * 9000);
+  const num = String(Math.floor(1000 + Math.random() * 9000));
   const phrase = `PresentAI ${word} ${num}`;
+  currentVoiceChallenge = { word, num, phrase };
+
   const el = document.getElementById('voice-challenge-phrase');
   if (el) el.innerText = `"${phrase}"`;
   return phrase;
