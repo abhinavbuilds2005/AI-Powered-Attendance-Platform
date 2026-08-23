@@ -92,16 +92,24 @@
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; align-items: start;">
-          <!-- Face Viewfinder -->
+          <!-- Face Viewfinder with Liveness Detection & Geo-Fencing -->
           <div id="student-face-container" style="background: white; border-radius: var(--radius-lg); border: 1px solid var(--card-border); padding: 1.5rem; text-align: center;">
+            <div id="liveness-badge" class="badge" style="background: rgba(15, 23, 42, 0.85); color: #FBBF24; padding: 6px 14px; font-size: 0.85rem; margin-bottom: 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 20px;">
+              <span class="material-symbols-outlined" style="font-size: 16px;">visibility</span> <span id="liveness-label">👁️ Anti-Spoofing: Blink naturally</span>
+            </div>
+
             <div class="camera-box">
               <video id="student-video" autoplay playsinline muted></video>
               <canvas id="student-canvas"></canvas>
               <div class="camera-overlay">
-                <div class="scanner-ring"></div>
+                <div id="scanner-ring" class="scanner-ring"></div>
               </div>
             </div>
             
+            <div id="geo-badge" style="font-size: 0.82rem; color: var(--text-muted); margin: 10px 0;">
+              <span class="material-symbols-outlined" style="font-size: 15px; vertical-align: middle; color: var(--primary);">location_on</span> <span id="geo-status-label">📍 Campus Geo-Location: Verifying...</span>
+            </div>
+
             <button id="btn-student-scan" class="btn btn-primary btn-block" onclick="captureAndFaceLogin()">
               <span class="material-symbols-outlined">photo_camera</span> Scan & Authenticate FaceID
             </button>
@@ -127,8 +135,8 @@
               <h3 style="margin-bottom: 0.5rem; color: var(--primary);">📸 Biometric Tips</h3>
               <ul style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; padding-left: 1.25rem;">
                 <li>Position your face directly in the circular ring.</li>
+                <li><strong>Anti-Spoofing</strong>: Blink naturally to confirm live human presence.</li>
                 <li>Ensure adequate room lighting.</li>
-                <li>For VoiceID, speak clearly into your microphone.</li>
               </ul>
               <hr style="border: none; border-top: 1px solid var(--card-border); margin: 1.25rem 0;" />
               <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">Are you a new student without a profile?</p>
@@ -206,6 +214,9 @@
           </button>
         </div>
       </div>
+
+      <!-- Low-Attendance Defaulter Warning Alert Container -->
+      <div id="student-defaulter-alert" style="display: none; margin-bottom: 1.5rem;"></div>
 
       <!-- Metrics Row -->
       <div class="metrics-row">
@@ -367,11 +378,16 @@
 
       <!-- TAB C: ATTENDANCE ANALYTICS -->
       <div id="teacher-subtab-analytics" class="teacher-tab-content" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-          <h3>Attendance Analytics</h3>
-          <button class="btn btn-primary" onclick="exportAttendanceCSV()">
-            <span class="material-symbols-outlined">download</span> Export Attendance as CSV
-          </button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+          <h3>Attendance Analytics & Reports</h3>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary" onclick="generateAttendancePDFReport()">
+              <span class="material-symbols-outlined">picture_as_pdf</span> Download PDF Report
+            </button>
+            <button class="btn btn-primary" onclick="exportAttendanceCSV()">
+              <span class="material-symbols-outlined">download</span> Export CSV
+            </button>
+          </div>
         </div>
 
         <div class="metrics-row">
@@ -389,7 +405,18 @@
           </div>
         </div>
 
-        <div class="table-responsive">
+        <!-- Analytics Sub-Tabs: Timeline vs At-Risk -->
+        <div class="tab-nav" style="max-width: 480px; margin-bottom: 1.25rem;">
+          <button id="t-analytic-tab-timeline" class="tab-btn active" onclick="switchAnalyticsSubTab('timeline')">
+            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle;">schedule</span> Sessions Timeline
+          </button>
+          <button id="t-analytic-tab-atrisk" class="tab-btn" onclick="switchAnalyticsSubTab('atrisk')">
+            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: var(--danger);">warning</span> At-Risk Students (< 75%)
+          </button>
+        </div>
+
+        <!-- Sub-View 1: Sessions Timeline -->
+        <div id="analytics-timeline-view" class="table-responsive">
           <table>
             <thead>
               <tr>
@@ -401,6 +428,23 @@
               </tr>
             </thead>
             <tbody id="attendance-analytics-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Sub-View 2: At-Risk Students (<75%) -->
+        <div id="analytics-atrisk-view" class="table-responsive" style="display: none;">
+          <table>
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Student ID</th>
+                <th>Course</th>
+                <th>Sessions Attended</th>
+                <th>Attendance Rate</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="atrisk-students-tbody"></tbody>
           </table>
         </div>
       </div>

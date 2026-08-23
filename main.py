@@ -381,9 +381,83 @@ async def export_attendance_csv(teacher_id: int):
     stream = io.StringIO()
     df.to_csv(stream, index=False)
     
-    response = StreamingResponse(iter([stream.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename=attendance_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-    return response
+    return Response(
+        content=stream.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=attendance_report_teacher_{teacher_id}.csv"}
+    )
+
+
+@app.get("/api/teacher/{teacher_id}/attendance/at-risk")
+async def get_at_risk_students(teacher_id: int):
+    """
+    Identifies enrolled students across all courses whose attendance rate is below 75% (Defaulters) or between 75-80% (Warning).
+    """
+    subjects = get_teacher_subjects(teacher_id) or []
+    at_risk = []
+
+    for sub in subjects:
+        sub_id = sub['subject_id']
+        sub_code = sub['subject_code']
+        sub_name = sub['name']
+        sec = sub['section']
+
+        # Enrolled students
+        enrolled_res = supabase.table('subject_students').select("*, students(*)").eq('subject_id', sub_id).execute()
+        enrolled = enrolled_res.data or []
+
+        # Attendance logs for this subject
+        logs_res = supabase.table('attendance_logs').select("*").eq('subject_id', sub_id).execute()
+        logs = logs_res.data or []
+
+        if not logs or not enrolled:
+            continue
+
+        # Count total distinct sessions
+        sessions = set(log.get('timestamp', '').split('.')[0] for log in logs if log.get('timestamp'))
+        total_sessions = len(sessions)
+        if total_sessions == 0:
+            continue
+
+        for item in enrolled:
+            student = item.get('students')
+            if not student:
+                continue
+            sid = student['student_id']
+            sname = student['name']
+
+            attended_count = sum(
+                1 for log in logs 
+                if log.get('student_id') == sid and log.get('is_present')
+            )
+            rate = round((attended_count / total_sessions) * 100, 1)
+
+            if rate < 75.0:
+                status_label = "Defaulter (<75%)"
+                severity = "danger"
+            elif rate < 80.0:
+                status_label = "Warning (75-80%)"
+                severity = "warning"
+            else:
+                continue
+
+            at_risk.append({
+                "student_id": sid,
+                "name": sname,
+                "subject_id": sub_id,
+                "subject_name": sub_name,
+                "subject_code": sub_code,
+                "section": sec,
+                "attended": attended_count,
+                "total": total_sessions,
+                "rate": rate,
+                "status": status_label,
+                "severity": severity
+            })
+
+    # Sort lowest attendance first
+    at_risk.sort(key=lambda x: x['rate'])
+    return {"at_risk_students": at_risk, "total_defaulters": len([s for s in at_risk if s['severity'] == 'danger'])}
 
 
 # ---------------------- Multimodal Attendance Recognition ---------------------- #
