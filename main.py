@@ -206,7 +206,8 @@ async def student_voice_login(payload: dict):
         if not candidates_dict:
             return {"success": False, "message": "No students have registered voice biometric profiles yet."}
 
-        matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.65)
+        matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.52)
+        print(f"VoiceID Scan: Matched student {matched_id} with similarity score {score:.3f}")
 
         if matched_id:
             student = next((s for s in all_students if s["student_id"] == matched_id), None)
@@ -221,10 +222,10 @@ async def student_voice_login(payload: dict):
                     "status": "recognized",
                     "student": student_safe,
                     "score": round(score * 100, 1),
-                    "message": f"Voice matched with {round(score * 100, 1)}% confidence!"
+                    "message": f"Voice verified with {round(score * 100, 1)}% confidence!"
                 }
 
-        return {"success": False, "status": "unrecognized", "message": "Voice profile not recognized. Try again or login using FaceID."}
+        return {"success": False, "status": "unrecognized", "message": f"Voice profile not recognized (score: {round(score * 100, 1)}%). Speak closer to your mic or login with FaceID."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
