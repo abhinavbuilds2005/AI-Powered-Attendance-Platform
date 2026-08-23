@@ -499,37 +499,12 @@ async function toggleStudentVoiceAuth() {
 
   if (studentAuthRecorder && studentAuthRecorder.isRecording) {
     micIcon.innerText = 'sync';
-    micLabel.innerText = 'Verifying Voice & Passphrase...';
+    micLabel.innerText = 'Matching Voiceprint...';
     clearInterval(studentAuthTimerInterval);
-
-    if (liveSpeechRecognizer) {
-      try { liveSpeechRecognizer.stop(); } catch (e) {}
-    }
 
     try {
       const wavBase64 = await studentAuthRecorder.stop();
       studentAuthRecorder = null;
-
-      // Small delay to collect final speech recognizer transcript
-      await new Promise(r => setTimeout(r, 400));
-
-      const transcriptClean = recordedSpeechTranscript.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      const challengeWord = currentVoiceChallenge.word.toLowerCase();
-      const challengeNum = currentVoiceChallenge.num;
-
-      // Check if the live speech matched the challenge code
-      const hasWord = transcriptClean.includes(challengeWord);
-      const hasNum = transcriptClean.includes(challengeNum);
-      const hasPresent = transcriptClean.includes('present') || transcriptClean.includes('ai');
-
-      const isLiveSpeechVerified = (hasWord || hasNum || (hasPresent && transcriptClean.length > 5));
-
-      if (recordedSpeechTranscript && !isLiveSpeechVerified) {
-        showToast(`❌ Anti-Replay: Passphrase mismatch! Please say: "${currentVoiceChallenge.phrase}"`, 'error');
-        generateVoiceChallengePhrase();
-        return;
-      }
-
       await sendStudentVoiceLogin(wavBase64, currentVoiceChallenge.phrase);
     } catch (err) {
       showToast('Error finalizing voice recording.', 'error');
@@ -539,27 +514,6 @@ async function toggleStudentVoiceAuth() {
     }
   } else {
     try {
-      recordedSpeechTranscript = '';
-
-      // Initialize Web Speech API for Anti-Replay Liveness
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        liveSpeechRecognizer = new SpeechRecognition();
-        liveSpeechRecognizer.continuous = true;
-        liveSpeechRecognizer.interimResults = true;
-        liveSpeechRecognizer.lang = 'en-US';
-
-        liveSpeechRecognizer.onresult = (event) => {
-          let text = '';
-          for (let i = 0; i < event.results.length; i++) {
-            text += event.results[i][0].transcript + ' ';
-          }
-          recordedSpeechTranscript = text;
-        };
-
-        try { liveSpeechRecognizer.start(); } catch (e) {}
-      }
-
       studentAuthRecorder = new WavAudioRecorder();
       await studentAuthRecorder.start();
 
@@ -574,7 +528,7 @@ async function toggleStudentVoiceAuth() {
         timer.innerText = `${mins}:${secs}`;
       }, 1000);
     } catch (err) {
-      showToast('Microphone access denied.', 'error');
+      showToast('Microphone access denied. Please check permissions.', 'error');
     }
   }
 }

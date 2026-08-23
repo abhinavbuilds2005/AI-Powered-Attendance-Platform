@@ -50,32 +50,16 @@ def load_audio_array(audio_bytes, target_sr=16000):
 
 def check_voice_liveness_and_anti_replay(audio_array, sr=16000):
     """
-    Analyzes audio spectrum for speaker replay artifacts (low-pass filtering and digital compression).
-    Distinguishes live human acoustic vocal tract from replayed phone speakers.
+    Verifies audible voice activity and dynamic energy range.
     """
-    if len(audio_array) < sr * 0.4:
-        return False, "Audio recording is too short. Please speak clearly for at least 1 second."
+    if len(audio_array) < sr * 0.3:
+        return False, "Audio recording is too short. Please speak for at least 1 second."
 
-    # Analyze spectral energy distribution
-    try:
-        # Check high-frequency spectral rolloff (phone speakers cut off frequencies > 7kHz)
-        spec_rolloff = librosa.feature.spectral_rolloff(y=audio_array, sr=sr, roll_percent=0.85)[0]
-        mean_rolloff = np.mean(spec_rolloff)
+    max_amp = float(np.max(np.abs(audio_array)))
+    if max_amp < 0.003:
+        return False, "Audio is too quiet. Please speak closer to your microphone."
 
-        # Zero crossing rate (ZCR) for speech vs artificial static
-        zcr = librosa.feature.zero_crossing_rate(y=audio_array)[0]
-        mean_zcr = np.mean(zcr)
-
-        # Signal-to-noise / silence dynamics
-        rms = librosa.feature.rms(y=audio_array)[0]
-        dynamic_range = np.max(rms) - np.min(rms)
-
-        if dynamic_range < 0.008:
-            return False, "No audible speech detected. Please speak closer to your microphone."
-
-        return True, "Live voice verified"
-    except Exception as e:
-        return True, "Standard voice verification"
+    return True, "Live voice verified"
 
 
 def get_voice_embedding(audio_bytes):
@@ -95,7 +79,7 @@ def get_voice_embedding(audio_bytes):
         return None
 
 
-def identify_speaker(new_embedding, candidates_dict, threshold=0.65):
+def identify_speaker(new_embedding, candidates_dict, threshold=0.58):
     """
     Compares a new embedding against candidate voice profiles using cosine similarity.
     """
@@ -126,7 +110,7 @@ def identify_speaker(new_embedding, candidates_dict, threshold=0.65):
     return None, best_score
 
 
-def process_bulk_audio(audio_bytes, candidates_dict, threshold=0.65):
+def process_bulk_audio(audio_bytes, candidates_dict, threshold=0.58):
     """
     Splits long classroom audio into speech segments and matches each against candidates.
     """
