@@ -1,7 +1,8 @@
-# SnapClass 🎓📸🎙️
-> **Next-Gen Multimodal AI Attendance System (FastAPI + HTML5/JS Web App for Render Deployment)**
+# PresentAI 🎓📸🎙️
 
-SnapClass is a production-ready, full-stack AI attendance platform built with **FastAPI**, **Vanilla HTML5/CSS/JavaScript**, and **Supabase**. It leverages native browser WebCam and microphone APIs for low-latency facial recognition (**dlib + SVM**) and voice speaker identification (**Resemblyzer + Librosa**).
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+PresentAI is a production-ready, full-stack AI attendance platform built with **FastAPI**, **Vanilla HTML5/CSS/JavaScript**, and **Supabase**. It leverages native browser WebCam and microphone APIs for low-latency facial recognition (**dlib + SVM**) and voice speaker identification (**Resemblyzer + Librosa**).
 
 ---
 

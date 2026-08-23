@@ -34,7 +34,7 @@ from src.database.db import (
 from src.pipelines.face_pipeline import predict_attendance, get_face_embeddings, train_classifier
 from src.pipelines.voice_pipeline import get_voice_embedding, process_bulk_audio
 
-app = FastAPI(title="SnapClass API - AI Multimodal Attendance System", version="2.0.0")
+app = FastAPI(title="PresentAI API - Multimodal Biometric Attendance System", version="2.0.0")
 
 # CORS middleware for development and deployment
 app.add_middleware(
@@ -96,7 +96,7 @@ async def serve_index():
     index_path = os.path.join("static", "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return HTMLResponse("<h1>SnapClass API is running. Please load static/index.html</h1>")
+    return HTMLResponse("<h1>PresentAI API is running. Please load static/index.html</h1>")
 
 
 # ---------------------- Teacher Auth Endpoints ---------------------- #

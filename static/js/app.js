@@ -1,4 +1,4 @@
-// SnapClass Application Logic
+// PresentAI Application Logic
 
 let currentStudent = null;
 let currentTeacher = null;
