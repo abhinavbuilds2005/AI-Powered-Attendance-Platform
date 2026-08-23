@@ -200,43 +200,43 @@ async def student_voice_login(payload: dict):
         all_students = get_all_students() or []
         target_query = (payload.get("target_student") or "").strip().lower()
 
-        # If user specified target student (1:1 Verification)
+        # If user specified or spoke target student name/ID
         if target_query:
-            target_matches = [
-                s for s in all_students
-                if s.get("voice_embedding") and (
-                    str(s["student_id"]) == target_query or
-                    target_query in s["name"].lower()
-                )
-            ]
-            if not target_matches:
-                return {"success": False, "status": "not_found", "message": f"No student found matching '{target_query}'."}
+            target_matches = []
+            for s in all_students:
+                if not s.get("voice_embedding"):
+                    continue
+                s_name = s["name"].lower()
+                s_id = str(s["student_id"])
+                # Match if query equals ID or query in name or any name word in query (e.g. "abhinav" in "my name is abhinav anand")
+                if s_id == target_query or s_name in target_query or any(part in target_query for part in s_name.split() if len(part) >= 3):
+                    target_matches.append(s)
 
-            # Test against target student's profile
-            target_student = target_matches[0]
-            target_dict = {target_student["student_id"]: target_student["voice_embedding"]}
-            matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.48)
-            print(f"VoiceID 1:1 Scan: Tested against {target_student['name']} (ID {target_student['student_id']}) -> score: {score:.3f}")
+            if target_matches:
+                target_dict = {s["student_id"]: s["voice_embedding"] for s in target_matches}
+                matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.45)
+                print(f"VoiceID Spoken-Name Scan: Found matches {[s['name'] for s in target_matches]} -> matched ID {matched_id}, score: {score:.3f}")
 
-            if matched_id:
-                student_safe = {
-                    "student_id": target_student["student_id"],
-                    "name": target_student["name"],
-                    "has_voice": True
-                }
-                return {
-                    "success": True,
-                    "status": "recognized",
-                    "student": student_safe,
-                    "score": round(score * 100, 1),
-                    "message": f"Voice verified for {target_student['name']} ({round(score * 100, 1)}% match)!"
-                }
-            else:
-                return {
-                    "success": False,
-                    "status": "mismatch",
-                    "message": f"Voiceprint does not match registered profile for {target_student['name']} ({round(score * 100, 1)}% match)."
-                }
+                if matched_id:
+                    matched_student = next((s for s in target_matches if s["student_id"] == matched_id), target_matches[0])
+                    student_safe = {
+                        "student_id": matched_student["student_id"],
+                        "name": matched_student["name"],
+                        "has_voice": True
+                    }
+                    return {
+                        "success": True,
+                        "status": "recognized",
+                        "student": student_safe,
+                        "score": round(score * 100, 1),
+                        "message": f"Voice verified for {matched_student['name']} ({round(score * 100, 1)}% match)!"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "status": "mismatch",
+                        "message": f"Voiceprint does not match registered profile for {target_matches[0]['name']} ({round(score * 100, 1)}% match)."
+                    }
 
         # 1:N Automatic Matching across all candidates
         candidates_dict = {

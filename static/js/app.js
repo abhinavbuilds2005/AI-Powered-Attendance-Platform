@@ -500,6 +500,8 @@ window.captureRegistrationFace = captureRegistrationFace;
 // Student VoiceID Authentication
 let studentAuthTimerInterval = null;
 let studentAuthSeconds = 0;
+let voiceSpeechTranscript = '';
+let backgroundSpeechRecognizer = null;
 
 async function toggleStudentVoiceAuth() {
   const micIcon = document.getElementById('s-mic-icon');
@@ -511,9 +513,14 @@ async function toggleStudentVoiceAuth() {
     micLabel.innerText = 'Matching Voiceprint...';
     clearInterval(studentAuthTimerInterval);
 
+    if (backgroundSpeechRecognizer) {
+      try { backgroundSpeechRecognizer.stop(); } catch (e) {}
+    }
+
     try {
       const wavBase64 = await studentAuthRecorder.stop();
       studentAuthRecorder = null;
+      await new Promise(r => setTimeout(r, 200));
       await sendStudentVoiceLogin(wavBase64, currentVoiceChallenge.phrase);
     } catch (err) {
       showToast('Error finalizing voice recording.', 'error');
@@ -523,6 +530,27 @@ async function toggleStudentVoiceAuth() {
     }
   } else {
     try {
+      voiceSpeechTranscript = '';
+
+      // Initialize background speech recognition to capture spoken name
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        try {
+          backgroundSpeechRecognizer = new SpeechRecognition();
+          backgroundSpeechRecognizer.continuous = true;
+          backgroundSpeechRecognizer.interimResults = true;
+          backgroundSpeechRecognizer.lang = 'en-US';
+          backgroundSpeechRecognizer.onresult = (e) => {
+            let t = '';
+            for (let i = 0; i < e.results.length; i++) {
+              t += e.results[i][0].transcript + ' ';
+            }
+            voiceSpeechTranscript = t;
+          };
+          backgroundSpeechRecognizer.start();
+        } catch (e) {}
+      }
+
       studentAuthRecorder = new WavAudioRecorder();
       await studentAuthRecorder.start();
 
@@ -544,7 +572,12 @@ async function toggleStudentVoiceAuth() {
 window.toggleStudentVoiceAuth = toggleStudentVoiceAuth;
 
 async function sendStudentVoiceLogin(base64Audio, phrase) {
-  const targetStudent = document.getElementById('voice-target-student')?.value?.trim() || '';
+  let targetStudent = document.getElementById('voice-target-student')?.value?.trim() || '';
+
+  // If student didn't type name, use any name detected in the spoken speech!
+  if (!targetStudent && voiceSpeechTranscript) {
+    targetStudent = voiceSpeechTranscript.trim();
+  }
 
   try {
     const res = await fetch('/api/student/voice-login', {
