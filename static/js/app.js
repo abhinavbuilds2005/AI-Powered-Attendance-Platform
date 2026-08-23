@@ -207,13 +207,18 @@ function startLivenessDetection() {
   const badge = document.getElementById('liveness-badge');
   const label = document.getElementById('liveness-label');
   const ring = document.getElementById('scanner-ring');
+  const btn = document.getElementById('btn-student-scan');
 
   if (badge) {
     badge.style.background = 'rgba(15, 23, 42, 0.85)';
     badge.style.color = '#FBBF24';
   }
-  if (label) label.innerText = '👁️ Anti-Spoofing: Blink naturally';
+  if (label) label.innerText = '👁️ Anti-Spoofing: Blink or move head to unlock';
   if (ring) ring.style.borderColor = 'var(--primary)';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined">lock</span> Blink to Unlock FaceID';
+  }
 
   const video = document.getElementById('student-video');
   const canvas = document.getElementById('student-canvas');
@@ -233,11 +238,10 @@ function startLivenessDetection() {
 
     if (previousFrameData) {
       let diffSum = 0;
-      const totalPixels = 160 * 120;
 
-      // Sample pixels in the eye & central face region (25% to 75% height/width)
-      for (let y = 30; y < 90; y += 2) {
-        for (let x = 40; x < 120; x += 2) {
+      // Sample eye/face center region
+      for (let y = 25; y < 95; y += 2) {
+        for (let x = 35; x < 125; x += 2) {
           const idx = (y * 160 + x) * 4;
           const rDiff = Math.abs(data[idx] - previousFrameData[idx]);
           const gDiff = Math.abs(data[idx + 1] - previousFrameData[idx + 1]);
@@ -246,40 +250,32 @@ function startLivenessDetection() {
         }
       }
 
-      const avgMotion = diffSum / (60 * 40 / 4);
+      const avgMotion = diffSum / (70 * 45 / 4);
 
-      // Micro-motion / blink threshold detection (between natural blink range and head turn)
-      if (avgMotion > 4.5 && avgMotion < 45.0) {
+      // Micro-motion & Blink detection (natural human optical variance)
+      if (avgMotion > 5.0 && avgMotion < 60.0) {
         blinkMotionScore += 1;
       }
 
+      // Require consecutive natural human micro-motion / blink
       if (blinkMotionScore >= 2 && !isLivenessVerified) {
         isLivenessVerified = true;
         if (badge) {
-          badge.style.background = 'rgba(16, 185, 129, 0.9)';
+          badge.style.background = 'rgba(16, 185, 129, 0.95)';
           badge.style.color = 'white';
         }
-        if (label) label.innerText = '✅ Liveness Verified (Live Human)';
+        if (label) label.innerText = '✅ Live Human Verified';
         if (ring) ring.style.borderColor = 'var(--success)';
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span class="material-symbols-outlined">photo_camera</span> Scan & Authenticate FaceID';
+        }
         clearInterval(livenessInterval);
       }
     }
 
     previousFrameData = data;
-  }, 200);
-
-  // Auto-verify fallback after 4 seconds of smooth feed to prevent blocking users
-  setTimeout(() => {
-    if (!isLivenessVerified && video.readyState >= 2) {
-      isLivenessVerified = true;
-      if (badge) {
-        badge.style.background = 'rgba(16, 185, 129, 0.9)';
-        badge.style.color = 'white';
-      }
-      if (label) label.innerText = '✅ Liveness Verified (Live Human)';
-      if (ring) ring.style.borderColor = 'var(--success)';
-    }
-  }, 4000);
+  }, 180);
 }
 
 function stopLivenessDetection() {
@@ -405,6 +401,11 @@ function switchStudentAuthMode(mode) {
 window.switchStudentAuthMode = switchStudentAuthMode;
 
 async function captureAndFaceLogin() {
+  if (!isLivenessVerified) {
+    showToast('⚠️ Anti-Spoofing: Live human presence required. Please blink or move your head to unlock.', 'error');
+    return;
+  }
+
   const video = document.getElementById('student-video');
   const canvas = document.getElementById('student-canvas');
   const btn = document.getElementById('btn-student-scan');
