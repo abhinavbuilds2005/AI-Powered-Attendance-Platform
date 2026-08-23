@@ -198,6 +198,47 @@ async def student_voice_login(payload: dict):
             return {"success": False, "message": "Could not extract voice features. Please speak clearly."}
 
         all_students = get_all_students() or []
+        target_query = (payload.get("target_student") or "").strip().lower()
+
+        # If user specified target student (1:1 Verification)
+        if target_query:
+            target_matches = [
+                s for s in all_students
+                if s.get("voice_embedding") and (
+                    str(s["student_id"]) == target_query or
+                    target_query in s["name"].lower()
+                )
+            ]
+            if not target_matches:
+                return {"success": False, "status": "not_found", "message": f"No student found matching '{target_query}'."}
+
+            # Test against target student's profile
+            target_student = target_matches[0]
+            target_dict = {target_student["student_id"]: target_student["voice_embedding"]}
+            matched_id, score = identify_speaker(new_emb, target_dict, threshold=0.48)
+            print(f"VoiceID 1:1 Scan: Tested against {target_student['name']} (ID {target_student['student_id']}) -> score: {score:.3f}")
+
+            if matched_id:
+                student_safe = {
+                    "student_id": target_student["student_id"],
+                    "name": target_student["name"],
+                    "has_voice": True
+                }
+                return {
+                    "success": True,
+                    "status": "recognized",
+                    "student": student_safe,
+                    "score": round(score * 100, 1),
+                    "message": f"Voice verified for {target_student['name']} ({round(score * 100, 1)}% match)!"
+                }
+            else:
+                return {
+                    "success": False,
+                    "status": "mismatch",
+                    "message": f"Voiceprint does not match registered profile for {target_student['name']} ({round(score * 100, 1)}% match)."
+                }
+
+        # 1:N Automatic Matching across all candidates
         candidates_dict = {
             s["student_id"]: s["voice_embedding"]
             for s in all_students if s.get("voice_embedding")
@@ -207,7 +248,7 @@ async def student_voice_login(payload: dict):
             return {"success": False, "message": "No students have registered voice biometric profiles yet."}
 
         matched_id, score = identify_speaker(new_emb, candidates_dict, threshold=0.48)
-        print(f"VoiceID Scan: Best match student {matched_id} with score {score:.3f} against {len(candidates_dict)} profiles")
+        print(f"VoiceID 1:N Scan: Best match student {matched_id} with score {score:.3f} against {len(candidates_dict)} profiles")
 
         if matched_id:
             student = next((s for s in all_students if s["student_id"] == matched_id), None)

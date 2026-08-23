@@ -124,10 +124,16 @@
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Acoustic voiceprint identification & anti-replay verification.</p>
 
             <!-- Dynamic Liveness Passcode Challenge -->
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 12px; margin-bottom: 1.25rem; text-align: center;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 12px; margin-bottom: 1rem; text-align: center;">
               <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #64748B; margin-bottom: 4px;">🔐 Anti-Replay Live Passphrase Challenge</div>
               <div id="voice-challenge-phrase" style="font-size: 1.15rem; font-weight: 800; color: var(--primary); letter-spacing: 0.08em; font-family: monospace;">"PresentAI Code 4921"</div>
               <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Say the phrase above clearly into your microphone</div>
+            </div>
+
+            <!-- Optional 1:1 Verification Target -->
+            <div class="form-group" style="text-align: left; margin-bottom: 1.25rem;">
+              <label style="font-size: 0.82rem; color: var(--text-muted);">Target Student Name / ID (Optional):</label>
+              <input type="text" id="voice-target-student" class="form-control" placeholder="e.g. Abhinav Anand (or leave blank for Auto)" style="font-size: 0.88rem;" />
             </div>
             
             <button id="btn-student-voice-mic" class="btn btn-primary btn-block" onclick="toggleStudentVoiceAuth()">

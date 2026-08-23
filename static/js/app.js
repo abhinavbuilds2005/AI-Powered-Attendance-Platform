@@ -544,11 +544,13 @@ async function toggleStudentVoiceAuth() {
 window.toggleStudentVoiceAuth = toggleStudentVoiceAuth;
 
 async function sendStudentVoiceLogin(base64Audio, phrase) {
+  const targetStudent = document.getElementById('voice-target-student')?.value?.trim() || '';
+
   try {
     const res = await fetch('/api/student/voice-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio: base64Audio, challenge_phrase: phrase })
+      body: JSON.stringify({ audio: base64Audio, challenge_phrase: phrase, target_student: targetStudent })
     });
     const data = await res.json();
     if (res.ok && data.success && data.student) {
