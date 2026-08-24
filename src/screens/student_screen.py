@@ -218,7 +218,9 @@ def student_screen():
                             voice_emb = None
                             if audio_data:
                                 try:
-                                    voice_emb = get_voice_embedding(audio_data.read())
+                                    voice_emb, voice_msg = safe_get_voice_embedding(audio_data.read())
+                                    if voice_emb is None:
+                                        st.warning(f"Voice sample skipped: {voice_msg} — continuing with FaceID registration.")
                                 except Exception:
                                     st.warning("Could not process voice sample, registering with FaceID only.")
 

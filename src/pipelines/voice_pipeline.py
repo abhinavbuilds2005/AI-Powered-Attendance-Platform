@@ -6,11 +6,45 @@ from resemblyzer import VoiceEncoder, preprocess_wav
 
 _VOICE_ENCODER = None
 
+
 def load_voice_encoder():
     global _VOICE_ENCODER
     if _VOICE_ENCODER is None:
         _VOICE_ENCODER = VoiceEncoder()
     return _VOICE_ENCODER
+
+
+def safe_get_voice_embedding(audio_bytes):
+    """
+    Validates the raw audio and returns (embedding, message).
+    If the sample is empty, too short, too quiet, or invalid, returns None but keeps the
+    rest of the account creation flow alive.
+    """
+    if audio_bytes is None:
+        return None, "No voice sample provided."
+
+    if isinstance(audio_bytes, str):
+        stripped = audio_bytes.strip()
+        if not stripped:
+            return None, "No voice sample provided."
+
+    try:
+        audio, sr = load_audio_array(audio_bytes, target_sr=16000)
+    except Exception as exc:
+        return None, f"Could not decode the voice sample: {exc}"
+
+    if len(audio) < 800:
+        return None, "Voice sample is too short. Please record for at least 1 second."
+
+    if float(np.max(np.abs(audio))) < 0.003:
+        return None, "Voice sample is too quiet. Please speak closer to the microphone."
+
+    try:
+        wav = preprocess_wav(audio)
+        embedding = load_voice_encoder().embed_utterance(wav)
+        return embedding.tolist(), "Voice sample validated successfully."
+    except Exception as exc:
+        return None, f"Could not extract a valid voiceprint: {exc}"
 
 
 def load_audio_array(audio_bytes, target_sr=16000):
@@ -66,17 +100,8 @@ def get_voice_embedding(audio_bytes):
     """
     Extracts 256-dimensional acoustic embedding from raw audio bytes.
     """
-    try:
-        encoder = load_voice_encoder()
-        audio, sr = load_audio_array(audio_bytes, target_sr=16000)
-        if len(audio) < 800:
-            return None
-        wav = preprocess_wav(audio)
-        embedding = encoder.embed_utterance(wav)
-        return embedding.tolist()
-    except Exception as e:
-        print(f"Voice embedding error: {e}")
-        return None
+    embedding, _ = safe_get_voice_embedding(audio_bytes)
+    return embedding
 
 
 def identify_speaker(new_embedding, candidates_dict, threshold=0.58, min_margin=0.0):

@@ -341,13 +341,19 @@ function stopAllCameras() {
 window.stopAllCameras = stopAllCameras;
 
 function captureFrameAsBase64(videoElement, canvasElement) {
-  const width = videoElement.videoWidth || 640;
-  const height = videoElement.videoHeight || 480;
+  const rawWidth = videoElement.videoWidth || 640;
+  const rawHeight = videoElement.videoHeight || 480;
+  const maxWidth = 480;
+  const maxHeight = 360;
+  const scale = Math.min(1, maxWidth / rawWidth, maxHeight / rawHeight);
+  const width = Math.max(1, Math.round(rawWidth * scale));
+  const height = Math.max(1, Math.round(rawHeight * scale));
+
   canvasElement.width = width;
   canvasElement.height = height;
   const ctx = canvasElement.getContext('2d');
   ctx.drawImage(videoElement, 0, 0, width, height);
-  return canvasElement.toDataURL('image/jpeg', 0.9);
+  return canvasElement.toDataURL('image/jpeg', 0.75);
 }
 
 // ==================== STUDENT PORTAL & BIOMETRIC AUTH ==================== //
@@ -663,6 +669,15 @@ async function submitStudentRegistration() {
   }
   if (!faceImage) {
     showToast('Please snap your face photo using the camera viewfinder.', 'error');
+    return;
+  }
+
+  if (recordedVoiceBase64 && voiceRecordSeconds > 0 && voiceRecordSeconds < 1) {
+    showToast('Please record at least 1 second of clear speech for voice enrollment.', 'error');
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> Complete Profile Registration';
+    }
     return;
   }
 

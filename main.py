@@ -2,11 +2,12 @@ import os
 import io
 import base64
 import re
+import asyncio
 from datetime import datetime
 from typing import List, Optional
 import numpy as np
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageOps
 import segno
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Response
@@ -23,6 +24,7 @@ from src.database.db import (
     teacher_login,
     get_all_students,
     create_student,
+    update_student_voice_embedding,
     create_subject,
     get_teacher_subjects,
     enroll_student_to_subject,
@@ -33,7 +35,7 @@ from src.database.db import (
     get_attendance_for_teacher,
 )
 from src.pipelines.face_pipeline import predict_attendance, get_face_embeddings, train_classifier
-from src.pipelines.voice_pipeline import get_voice_embedding, process_bulk_audio
+from src.pipelines.voice_pipeline import get_voice_embedding, process_bulk_audio, safe_get_voice_embedding
 
 app = FastAPI(title="PresentAI API - Multimodal Biometric Attendance System", version="2.0.0")
 
@@ -83,6 +85,15 @@ def decode_base64_image(base64_str: str) -> np.ndarray:
         base64_str = base64_str.split(",")[1]
     image_bytes = base64.b64decode(base64_str)
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = ImageOps.exif_transpose(image)
+
+    max_side = 640
+    width, height = image.size
+    if max(width, height) > max_side:
+        scale = max_side / max(width, height)
+        new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+        image = image.resize(new_size, Image.Resampling.LANCZOS)
+
     return np.array(image)
 
 def decode_base64_audio(base64_str: str) -> bytes:
@@ -290,6 +301,19 @@ async def student_voice_login(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _store_voice_profile_later(student_id: int, audio_b64: str):
+    try:
+        audio_bytes = decode_base64_audio(audio_b64)
+        voice_emb, voice_msg = safe_get_voice_embedding(audio_bytes)
+        if voice_emb is None:
+            print(f"Voice enrollment skipped for student {student_id}: {voice_msg}")
+            return
+        update_student_voice_embedding(student_id, voice_emb)
+        print(f"Voice profile stored for student {student_id}")
+    except Exception as e:
+        print(f"Voice profile background update failed for student {student_id}: {e}")
+
+
 @app.post("/api/student/register")
 async def student_register_endpoint(payload: dict):
     name = payload.get("name")
@@ -310,23 +334,18 @@ async def student_register_endpoint(payload: dict):
         raise HTTPException(status_code=400, detail="Could not detect facial landmarks. Please retake photo.")
 
     face_emb = encodings[0].tolist()
-    voice_emb = None
-
-    if audio_b64:
-        try:
-            audio_bytes = decode_base64_audio(audio_b64)
-            voice_emb = get_voice_embedding(audio_bytes)
-        except Exception as e:
-            print(f"Voice enrollment notice: {e}")
 
     try:
-        response_data = create_student(name.strip(), face_embedding=face_emb, voice_embedding=voice_emb)
+        response_data = create_student(name.strip(), face_embedding=face_emb, voice_embedding=None)
         if response_data:
             student = response_data[0]
+            if audio_b64:
+                asyncio.create_task(_store_voice_profile_later(student["student_id"], audio_b64))
+
             student_safe = {
                 "student_id": student["student_id"],
                 "name": student["name"],
-                "has_voice": bool(voice_emb)
+                "has_voice": False
             }
             return {"success": True, "student": student_safe, "message": f"Welcome, {name}!"}
         raise HTTPException(status_code=500, detail="Failed to create student profile.")
