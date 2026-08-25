@@ -1,661 +1,1264 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AttendPro - Biometric Attendance System</title>
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Material Symbols Rounded -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-    
-    <!-- Custom Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapClass – AI Biometric Attendance</title>
+  <meta name="description" content="SnapClass AI attendance platform using FaceNet face recognition, MTCNN detection, and voice AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ── Reset & Core ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #1a1a2e;
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font-family: inherit; }
+    button { cursor: pointer; border: none; outline: none; }
+
+    /* ── Pages visibility ── */
+    .page { display: none; min-height: 100vh; flex-direction: column; }
+    .page.active { display: flex; }
+
+    /* ══════════════════════════════════════════════════════
+       HOME PAGE (Exact Purple/Indigo Theme from screenshot)
+    ══════════════════════════════════════════════════════ */
+    #page-home {
+      background: #5c62d6;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+    .home-logo-box {
+      width: 82px;
+      height: 82px;
+      background: #FFE600;
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      margin: 0 auto 0.6rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+    .home-brand-title {
+      font-family: 'Dela Gothic One', cursive;
+      font-size: 3.8rem;
+      color: #ffffff;
+      line-height: 1.05;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin-bottom: 2.8rem;
+      text-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    .role-cards-container {
+      display: flex;
+      gap: 1.8rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3.5rem;
+    }
+    .role-card {
+      background: #ffffff;
+      border-radius: 36px;
+      padding: 2.2rem 2rem 1.8rem;
+      width: 250px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.15);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .role-card:hover { transform: translateY(-6px); }
+    .role-card .im-text {
+      font-family: 'Dela Gothic One', cursive;
+      font-size: 1.25rem;
+      color: #1a1a2e;
+      line-height: 1.2;
+    }
+    .role-card .role-title {
+      font-family: 'Dela Gothic One', cursive;
+      font-size: 1.7rem;
+      color: #1a1a2e;
+      line-height: 1.1;
+      margin-bottom: 0.8rem;
+    }
+    .role-card .avatar-box {
+      align-self: center;
+      font-size: 4.8rem;
+      margin: 0.8rem 0 1.6rem;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.1));
+    }
+    .btn-portal-pill {
+      background: #5055cb;
+      color: #ffffff;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      box-shadow: 0 4px 14px rgba(80,85,203,0.35);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-portal-pill:hover { background: #3f44b5; transform: scale(1.03); }
+
+    .creator-footer {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.75);
+    }
+    .creator-footer .heart { color: #ff3366; }
+
+    /* ══════════════════════════════════════════════════════
+       INNER PAGES (Lavender Background #EAEAF5)
+    ══════════════════════════════════════════════════════ */
+    .inner-page-bg {
+      background: #e8e8f5;
+    }
+    .sc-navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 2.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .sc-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+    .sc-brand .mini-logo {
+      width: 48px;
+      height: 48px;
+      background: #FFE600;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .sc-brand .mini-title {
+      font-family: 'Dela Gothic One', cursive;
+      font-size: 1.15rem;
+      color: #1a1a2e;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+
+    .btn-pink-pill {
+      background: #e93b77;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.55rem 1.2rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-pink-pill:hover { background: #d32863; transform: translateY(-1px); }
+
+    .btn-blue-pill {
+      background: #5055cb;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.55rem 1.2rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-blue-pill:hover { background: #3f44b5; transform: translateY(-1px); }
+
+    .btn-black-pill {
+      background: #111424;
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.55rem 1.2rem;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-black-pill:hover { background: #232742; transform: translateY(-1px); }
+
+    .inner-content-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem 2rem 3rem;
+      width: 100%;
+      max-width: 620px;
+      margin: 0 auto;
+    }
+    .section-title {
+      font-family: 'Dela Gothic One', cursive;
+      font-size: 1.9rem;
+      color: #1a1a2e;
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Camera Viewfinder Box ── */
+    .cam-label {
+      align-self: flex-start;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 0.5rem;
+    }
+    .camera-frame {
+      width: 100%;
+      height: 290px;
+      background: #2a3147;
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .camera-frame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+      transform: scaleX(-1);
+    }
+    .camera-frame .cam-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: #cbd5e1;
+    }
+    .cam-actions-box {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .btn-take-photo-large {
+      width: 100%;
+      padding: 0.85rem;
+      border-radius: 14px;
+      background: #5055cb;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 700;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-take-photo-large:hover { background: #3f44b5; transform: scale(1.01); }
+
+    /* ── Voice & Notification Bar ── */
+    .voice-badge-bar {
+      width: 100%;
+      background: rgba(80,85,203,0.08);
+      border: 1px solid rgba(80,85,203,0.2);
+      border-radius: 12px;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+    .v-left { display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0; }
+    .v-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #5055cb; flex-shrink: 0;
+    }
+    .v-dot.listening { background: #e93b77; animation: blinkPulse 0.9s infinite; }
+    .v-dot.speaking  { background: #10b981; animation: blinkPulse 0.7s infinite; }
+    @keyframes blinkPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(1.3);} }
+
+    .v-label { font-size: 0.8rem; font-weight: 800; color: #5055cb; }
+    .v-status { font-size: 0.76rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .result-card {
+      width: 100%;
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 1.1rem 1.3rem;
+      border-left: 5px solid #10b981;
+      display: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+    .result-card.active { display: block; animation: popIn 0.3s ease; }
+    @keyframes popIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ══════════════════════════════════════════════════════
+       TEACHER DASHBOARD TABS
+    ══════════════════════════════════════════════════════ */
+    .dashboard-container {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1rem 1.5rem 3rem;
+      flex: 1;
+    }
+    .tab-pills-row {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+    .nav-tab-btn {
+      padding: 0.6rem 1.3rem;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      background: #111424;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+    .nav-tab-btn.active {
+      background: #5055cb;
+      box-shadow: 0 4px 14px rgba(80,85,203,0.35);
+    }
+
+    /* ── White Cards (Manage Subjects) ── */
+    .subject-white-card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 1.5rem 1.8rem;
+      border: 1px solid #d9daf0;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+      margin-bottom: 1.2rem;
+    }
+    .subject-white-card .subj-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #1a1a2e;
+      margin-bottom: 0.5rem;
+    }
+    .subject-white-card .subj-details {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #555;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .badge-code {
+      background: #5055cb;
+      color: #ffffff;
+      padding: 0.15rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .stats-pills-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1.2rem;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      background: #5055cb;
+      color: #ffffff;
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    /* ── Form Inputs ── */
+    .sc-form-group {
+      margin-bottom: 1.2rem;
+      width: 100%;
+    }
+    .sc-form-group label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 0.4rem;
+    }
+    .sc-input-box {
+      width: 100%;
+      background: #ffffff;
+      border: 2px solid #111424;
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      color: #1a1a2e;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .sc-input-box:focus { border-color: #5055cb; }
+    .pw-container { position: relative; width: 100%; }
+    .pw-toggle-btn {
+      position: absolute;
+      right: 0.6rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #5055cb;
+      color: #ffffff;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+
+    /* ── Table Styling ── */
+    .table-container {
+      width: 100%;
+      background: #ffffff;
+      border-radius: 20px;
+      overflow-x: auto;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+      border: 1px solid #d9daf0;
+    }
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .custom-table th {
+      background: #5055cb;
+      color: #ffffff;
+      padding: 0.85rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+    .custom-table td {
+      padding: 0.85rem 1.1rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #2a3147;
+      border-bottom: 1px solid #f0f0f8;
+    }
+    .status-present { color: #10b981; font-weight: 800; }
+    .status-absent  { color: #e93b77; font-weight: 800; }
+
+    .sub-footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #787a91;
+    }
+    .sub-footer .heart { color: #e93b77; }
+  </style>
 </head>
 <body>
 
-    <!-- Background Glow Effects -->
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
+<!-- ══════════════════════════════════════════════════
+     1. HOME PAGE
+══════════════════════════════════════════════════ -->
+<section class="page active" id="page-home">
+  <div class="home-logo-box">🎓</div>
+  <h1 class="home-brand-title">SNAP<br>CLASS</h1>
+  <div class="role-cards-container">
+    <!-- Student Card -->
+    <div class="role-card">
+      <div class="im-text">I'm</div>
+      <div class="role-title">Student</div>
+      <div class="avatar-box">🧑‍🎓</div>
+      <button class="btn-portal-pill" onclick="navigate('student-login')">Student Portal ↗</button>
+    </div>
+    <!-- Teacher Card -->
+    <div class="role-card">
+      <div class="im-text">I'm</div>
+      <div class="role-title">Teacher</div>
+      <div class="avatar-box">👨‍🏫</div>
+      <button class="btn-portal-pill" onclick="navigate('teacher-login')">Teacher Portal ↗</button>
+    </div>
+  </div>
+  <div class="creator-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     2. STUDENT FACE LOGIN
+══════════════════════════════════════════════════ -->
+<section class="page inner-page-bg" id="page-student-login">
+  <header class="sc-navbar">
+    <div class="sc-brand" onclick="navigate('home')">
+      <div class="mini-logo">🎓</div>
+      <div class="mini-title">SNAP<br>CLASS</div>
+    </div>
+    <button class="btn-pink-pill" onclick="navigate('home')">Go back to Home <span style="opacity:0.75;font-size:0.75rem">Ctrl + Backspace</span></button>
+  </header>
+
+  <div class="inner-content-center">
+    <h2 class="section-title">Login using FaceID</h2>
+    <div class="cam-label">Position your face in the center</div>
     
-    <!-- Toast Notifications Container -->
-    <div id="toast-container" class="toast-container"></div>
-
-    <!-- MAIN CONTAINER -->
-    <main class="app-container">
-
-        <!-- ==================== SCREEN 1: HOME PORTAL ==================== -->
-        <section id="screen-home" class="screen active">
-            <header class="home-header">
-                <div class="brand">
-                    <span class="material-symbols-rounded logo-icon">fingerprint</span>
-                    <h1>ATTEND<span>PRO</span></h1>
-                </div>
-                <p class="subtitle">A secure, classroom-ready attendance system for face verification, voice roll calls, subject enrollment, and session records.</p>
-            </header>
-
-            <div class="portal-grid">
-                <!-- Student Card -->
-                <div class="portal-card student-card" id="btn-portal-student">
-                    <div class="card-glow"></div>
-                    <div class="card-icon-wrapper">
-                        <span class="material-symbols-rounded">school</span>
-                    </div>
-                    <h2>Student Portal</h2>
-                    <p>Log in instantly using FaceID, enroll in subjects, and track your attendance record in real time.</p>
-                    <div class="card-action">
-                        <span>Enter Portal</span>
-                        <span class="material-symbols-rounded">arrow_forward</span>
-                    </div>
-                </div>
-
-                <!-- Teacher Card -->
-                <div class="portal-card teacher-card" id="btn-portal-teacher">
-                    <div class="card-glow"></div>
-                    <div class="card-icon-wrapper">
-                        <span class="material-symbols-rounded">co_present</span>
-                    </div>
-                    <h2>Teacher Portal</h2>
-                    <p>Manage your subjects, run classroom-wide face analysis, execute voice roll calls, and export logs.</p>
-                    <div class="card-action">
-                        <span>Enter Portal</span>
-                        <span class="material-symbols-rounded">arrow_forward</span>
-                    </div>
-                </div>
-            </div>
-            
-            <footer class="home-footer">
-                <p>&copy; 2026 AttendPro. Biometric attendance management for modern classrooms.</p>
-            </footer>
-        </section>
-
-
-        <!-- ==================== SCREEN 2: STUDENT LOGIN ==================== -->
-        <section id="screen-student-login" class="screen">
-            <div class="back-nav">
-                <button class="btn btn-secondary btn-icon" id="btn-student-login-back">
-                    <span class="material-symbols-rounded">arrow_back</span> Back
-                </button>
-            </div>
-
-            <div class="auth-box glass-panel">
-                <h2>Face Authentication</h2>
-                <p class="box-desc">Look directly into your camera to verify your identity.</p>
-
-                <!-- Webcam Capture Container -->
-                <div class="camera-wrapper">
-                    <div class="camera-lens">
-                        <video id="student-login-video" autoplay playsinline muted></video>
-                        <canvas id="student-login-canvas" class="hidden"></canvas>
-                        
-                        <!-- Scanning Animations -->
-                        <div class="scan-laser"></div>
-                        <div class="scan-corners">
-                            <div class="c-top-left"></div>
-                            <div class="c-top-right"></div>
-                            <div class="c-bottom-left"></div>
-                            <div class="c-bottom-right"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="auth-actions">
-                    <button class="btn btn-primary" id="btn-student-login-capture">
-                        <span class="material-symbols-rounded">photo_camera</span> Scan My Face
-                    </button>
-                </div>
-                
-                <div id="student-login-status" class="auth-status">
-                    <!-- Status message injected here -->
-                </div>
-            </div>
-        </section>
-
-
-        <!-- ==================== SCREEN 3: STUDENT REGISTER ==================== -->
-        <section id="screen-student-register" class="screen">
-            <div class="back-nav">
-                <button class="btn btn-secondary btn-icon" id="btn-student-register-back">
-                    <span class="material-symbols-rounded">arrow_back</span> Back
-                </button>
-            </div>
-
-            <div class="auth-box glass-panel wide-auth-box">
-                <h2>Register Student Profile</h2>
-                <p class="box-desc">Set up your face and voice biometrics to enroll in the system.</p>
-
-                <div class="register-layout">
-                    <!-- Left: Inputs and Voice -->
-                    <div class="register-fields">
-                        <div class="input-group">
-                            <label for="reg-student-name">Full Name</label>
-                            <input type="text" id="reg-student-name" placeholder="E.g. Hamza Rizvi" required>
-                        </div>
-
-                        <div class="voice-enrollment-card glass-panel-inner">
-                            <div class="voice-header">
-                                <span class="material-symbols-rounded voice-icon">mic</span>
-                                <div>
-                                    <h3>Voice Enrollment</h3>
-                                    <p class="voice-desc">Record yourself saying: <em>"My name is [your name], and I am present."</em></p>
-                                </div>
-                            </div>
-                            
-                            <!-- Recording status/UI -->
-                            <div class="voice-recorder-ui">
-                                <button class="btn btn-secondary btn-icon" id="btn-voice-record">
-                                    <span class="material-symbols-rounded" id="mic-icon">mic</span>
-                                    <span id="voice-record-text">Record Voice</span>
-                                </button>
-                                <span class="voice-timer hidden" id="voice-timer">00:00</span>
-                            </div>
-                            
-                            <!-- Visualizer Waveform -->
-                            <div class="waveform-container hidden" id="waveform-container">
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                                <div class="wave-bar"></div>
-                            </div>
-                        </div>
-
-                        <button class="btn btn-primary btn-large" id="btn-student-register-submit">
-                            <span class="material-symbols-rounded">how_to_reg</span> Create Profile
-                        </button>
-                    </div>
-
-                    <!-- Right: Photo Snapshot -->
-                    <div class="register-snapshot">
-                        <label>Face Identification Photo</label>
-                        <div class="snapshot-preview glass-panel-inner" id="snapshot-preview-container">
-                            <video id="student-reg-video" autoplay playsinline muted></video>
-                            <canvas id="student-reg-canvas" class="hidden"></canvas>
-                            <img id="student-reg-img" class="hidden" alt="Profile snapshot">
-                            <div class="snap-overlay" id="snap-overlay">Ready for snapshot</div>
-                        </div>
-                        <button class="btn btn-secondary" id="btn-student-reg-snap">
-                            <span class="material-symbols-rounded">camera</span> Take Photo
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- ==================== SCREEN 4: STUDENT DASHBOARD ==================== -->
-        <section id="screen-student-dashboard" class="screen">
-            <header class="dashboard-header glass-panel">
-                <div class="dashboard-brand">
-                    <span class="material-symbols-rounded brand-logo">fingerprint</span>
-                    <h2>Student Portal</h2>
-                </div>
-                <div class="user-profile">
-                    <div class="profile-info">
-                        <span class="welcome-text">Welcome Back,</span>
-                        <span class="profile-name" id="student-welcome-name">Loading...</span>
-                    </div>
-                    <button class="btn btn-secondary btn-icon" id="btn-student-logout">
-                        <span class="material-symbols-rounded">logout</span> Logout
-                    </button>
-                </div>
-            </header>
-
-            <div class="dashboard-content">
-                <!-- Overview & Stats -->
-                <div class="stats-panel glass-panel">
-                    <h3>Your Attendance Overview</h3>
-                    <div class="attendance-gauge-wrapper">
-                        <!-- SVG Circular Progress Bar -->
-                        <svg class="progress-ring" width="160" height="160">
-                            <circle class="progress-ring__circle-bg" stroke="rgba(255,255,255,0.05)" stroke-width="12" fill="transparent" r="70" cx="80" cy="80"/>
-                            <circle class="progress-ring__circle" id="student-progress-circle" stroke="url(#gradient-aurora)" stroke-width="12" fill="transparent" r="70" cx="80" cy="80" stroke-dasharray="439.8" stroke-dashoffset="439.8"/>
-                            <defs>
-                                <linearGradient id="gradient-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" stop-color="#10b981" />
-                                    <stop offset="100%" stop-color="#00d2ff" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                        <div class="gauge-percentage">
-                            <span id="student-attendance-percent">0%</span>
-                            <span class="gauge-label">Attended</span>
-                        </div>
-                    </div>
-
-                    <div class="attendance-meta">
-                        <div class="meta-item">
-                            <span class="meta-val" id="student-total-attended">0</span>
-                            <span class="meta-lbl">Attended Sessions</span>
-                        </div>
-                        <div class="meta-item-divider"></div>
-                        <div class="meta-item">
-                            <span class="meta-val" id="student-total-sessions">0</span>
-                            <span class="meta-lbl">Total Sessions</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Courses section -->
-                <div class="courses-panel">
-                    <div class="section-title-wrapper">
-                        <h3>Enrolled Courses</h3>
-                        <button class="btn btn-primary btn-icon" id="btn-student-open-enroll">
-                            <span class="material-symbols-rounded">add</span> Enroll in Subject
-                        </button>
-                    </div>
-
-                    <div class="course-grid" id="student-course-grid">
-                        <!-- Course cards injected dynamically -->
-                    </div>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- ==================== SCREEN 5: TEACHER LOGIN ==================== -->
-        <section id="screen-teacher-login" class="screen">
-            <div class="back-nav">
-                <button class="btn btn-secondary btn-icon" id="btn-teacher-login-back">
-                    <span class="material-symbols-rounded">arrow_back</span> Back
-                </button>
-            </div>
-
-            <div class="auth-box glass-panel">
-                <h2>Teacher Authentication</h2>
-                <p class="box-desc">Sign in with your academic credentials.</p>
-
-                <form id="form-teacher-login" class="auth-form">
-                    <div class="input-group">
-                        <label for="login-teacher-username">Username</label>
-                        <input type="text" id="login-teacher-username" placeholder="E.g. teacher123" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="login-teacher-password">Password</label>
-                        <input type="password" id="login-teacher-password" placeholder="Enter password" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-large btn-full">
-                        <span class="material-symbols-rounded">login</span> Log In
-                    </button>
-                </form>
-
-                <div class="form-switch">
-                    <p>New to AttendPro? <span id="link-go-to-teacher-register">Create an account</span></p>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- ==================== SCREEN 6: TEACHER REGISTER ==================== -->
-        <section id="screen-teacher-register" class="screen">
-            <div class="back-nav">
-                <button class="btn btn-secondary btn-icon" id="btn-teacher-register-back">
-                    <span class="material-symbols-rounded">arrow_back</span> Back
-                </button>
-            </div>
-
-            <div class="auth-box glass-panel">
-                <h2>Register Teacher Profile</h2>
-                <p class="box-desc">Create your credentials to manage subjects and take attendance.</p>
-
-                <form id="form-teacher-register" class="auth-form">
-                    <div class="input-group">
-                        <label for="reg-teacher-name">Full Name</label>
-                        <input type="text" id="reg-teacher-name" placeholder="E.g. Dr. John Doe" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-teacher-username">Username</label>
-                        <input type="text" id="reg-teacher-username" placeholder="E.g. teacher123" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-teacher-password">Password</label>
-                        <input type="password" id="reg-teacher-password" placeholder="Min. 6 characters" required>
-                    </div>
-                    <div class="input-group">
-                        <label for="reg-teacher-confirm-password">Confirm Password</label>
-                        <input type="password" id="reg-teacher-confirm-password" placeholder="Re-enter password" required>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-large btn-full">
-                        <span class="material-symbols-rounded">how_to_reg</span> Register Profile
-                    </button>
-                </form>
-
-                <div class="form-switch">
-                    <p>Already have an account? <span id="link-go-to-teacher-login">Log in here</span></p>
-                </div>
-            </div>
-        </section>
-
-
-        <!-- ==================== SCREEN 7: TEACHER DASHBOARD ==================== -->
-        <section id="screen-teacher-dashboard" class="screen">
-            <!-- Header -->
-            <header class="dashboard-header glass-panel">
-                <div class="dashboard-brand">
-                    <span class="material-symbols-rounded brand-logo">fingerprint</span>
-                    <h2>Teacher Portal</h2>
-                </div>
-                <div class="user-profile">
-                    <div class="profile-info">
-                        <span class="welcome-text">Welcome,</span>
-                        <span class="profile-name" id="teacher-welcome-name">Loading...</span>
-                    </div>
-                    <button class="btn btn-secondary btn-icon" id="btn-teacher-logout">
-                        <span class="material-symbols-rounded">logout</span> Logout
-                    </button>
-                </div>
-            </header>
-
-            <div class="teacher-dashboard-layout">
-                <!-- Sidebar -->
-                <aside class="sidebar glass-panel">
-                    <nav class="sidebar-nav">
-                        <button class="nav-item active" data-tab="tab-take-attendance">
-                            <span class="material-symbols-rounded">ar_on_you</span> Take Attendance
-                        </button>
-                        <button class="nav-item" data-tab="tab-manage-subjects">
-                            <span class="material-symbols-rounded">book_ribbon</span> Manage Subjects
-                        </button>
-                        <button class="nav-item" data-tab="tab-attendance-records">
-                            <span class="material-symbols-rounded">cards_stack</span> Attendance Records
-                        </button>
-                    </nav>
-                </aside>
-
-                <!-- Main Content Pane -->
-                <main class="main-content">
-                    
-                    <!-- TAB A: TAKE ATTENDANCE -->
-                    <div id="tab-take-attendance" class="tab-pane active">
-                        <div class="tab-header-section">
-                            <h2>Take AI Attendance</h2>
-                            <p>Select a subject and run biometric checks via face scanning or voice analysis.</p>
-                        </div>
-
-                        <div class="attendance-setup glass-panel">
-                            <div class="setup-row">
-                                <div class="input-group select-group">
-                                    <label for="attendance-subject-select">Select Course</label>
-                                    <select id="attendance-subject-select">
-                                        <option value="">-- Choose Subject --</option>
-                                        <!-- Injected dynamically -->
-                                    </select>
-                                </div>
-                                <div class="biometric-mode-selector">
-                                    <label>Biometric Mode</label>
-                                    <div class="toggle-buttons">
-                                        <button class="btn btn-secondary active" id="btn-mode-face">
-                                            <span class="material-symbols-rounded">face</span> Face AI
-                                        </button>
-                                        <button class="btn btn-secondary" id="btn-mode-voice">
-                                            <span class="material-symbols-rounded">graphic_eq</span> Voice AI
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Face Attendance Panel -->
-                        <div id="panel-attendance-face" class="attendance-panel-mode">
-                            <div class="uploader-container glass-panel" id="photo-drop-zone">
-                                <span class="material-symbols-rounded upload-icon">cloud_upload</span>
-                                <h3>Upload Classroom Photos</h3>
-                                <p>Drag and drop multiple classroom snapshots, or click to browse files.</p>
-                                <input type="file" id="classroom-photo-input" multiple accept="image/*" class="hidden">
-                                <button class="btn btn-secondary" id="btn-browse-photos">Browse Images</button>
-                            </div>
-
-                            <div class="selected-photos-section hidden" id="selected-photos-section">
-                                <div class="section-title-wrapper">
-                                    <h3>Classroom Snapshots (<span id="photo-count">0</span>)</h3>
-                                    <button class="btn btn-danger-tertiary btn-icon" id="btn-clear-photos">
-                                        <span class="material-symbols-rounded">delete</span> Clear All
-                                    </button>
-                                </div>
-                                <div class="photo-thumbnail-grid" id="photo-thumbnail-grid">
-                                    <!-- Injected dynamically -->
-                                </div>
-                                
-                                <div class="analysis-action">
-                                    <button class="btn btn-primary btn-large" id="btn-run-face-analysis">
-                                        <span class="material-symbols-rounded">analytics</span> Run Deep Face Analysis
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Voice Attendance Panel -->
-                        <div id="panel-attendance-voice" class="attendance-panel-mode hidden">
-                            <div class="uploader-container glass-panel" id="voice-drop-zone">
-                                <span class="material-symbols-rounded upload-icon">spatial_audio</span>
-                                <h3>Voice Roll Call Recording</h3>
-                                <p>Upload classroom check-in audio, or record a bulk voice call live.</p>
-                                <input type="file" id="classroom-audio-input" accept="audio/*" class="hidden">
-                                
-                                <div class="voice-actions-group">
-                                    <button class="btn btn-secondary" id="btn-browse-audio">Browse Audio File</button>
-                                    <div class="voice-divider"><span>OR</span></div>
-                                    <button class="btn btn-primary btn-icon" id="btn-teacher-record-voice">
-                                        <span class="material-symbols-rounded" id="teacher-mic-icon">mic</span>
-                                        <span id="teacher-record-text">Start Live Recording</span>
-                                    </button>
-                                </div>
-                                
-                                <div class="recording-indicator hidden" id="teacher-recording-indicator">
-                                    <span class="pulse-dot"></span>
-                                    <span id="teacher-voice-timer">00:00</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- AI Results Section -->
-                        <div class="attendance-results-section glass-panel hidden" id="attendance-results-section">
-                            <div class="section-title-wrapper">
-                                <div>
-                                    <h3>AI Analysis Verification</h3>
-                                    <p class="results-meta">Verify results before logging attendance to Supabase.</p>
-                                </div>
-                                <div class="results-actions">
-                                    <button class="btn btn-secondary" id="btn-cancel-results">Cancel</button>
-                                    <button class="btn btn-primary" id="btn-save-attendance-submit">
-                                        <span class="material-symbols-rounded">check_circle</span> Commit Attendance
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="results-table-wrapper">
-                                <table class="results-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Student ID</th>
-                                            <th>Name</th>
-                                            <th>Detection Detail</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="results-table-body">
-                                        <!-- Injected dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB B: MANAGE SUBJECTS -->
-                    <div id="tab-manage-subjects" class="tab-pane">
-                        <div class="tab-header-section-row">
-                            <div>
-                                <h2>Manage Subjects</h2>
-                                <p>Manage classes and view stats of students enrolled in your subjects.</p>
-                            </div>
-                            <button class="btn btn-primary btn-icon" id="btn-open-create-subject">
-                                <span class="material-symbols-rounded">add</span> Create New Subject
-                            </button>
-                        </div>
-
-                        <div class="subjects-grid" id="teacher-subjects-grid">
-                            <!-- Subject cards injected dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- TAB C: ATTENDANCE RECORDS -->
-                    <div id="tab-attendance-records" class="tab-pane">
-                        <div class="tab-header-section">
-                            <h2>Attendance Records Logs</h2>
-                            <p>Review and search through all finalized biometric attendance check-ins.</p>
-                        </div>
-
-                        <div class="records-analytics glass-panel">
-                            <h3>Attendance Trend Analysis</h3>
-                            <!-- SVG Chart -->
-                            <div class="chart-container" id="records-chart-container">
-                                <svg class="analytics-chart" viewBox="0 0 800 250" id="analytics-svg">
-                                    <!-- Injected dynamically -->
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- Logs list -->
-                        <div class="records-table-card glass-panel">
-                            <div class="table-header-filters">
-                                <h3>Historical Runs</h3>
-                                <div class="filter-controls">
-                                    <div class="search-box">
-                                        <span class="material-symbols-rounded">search</span>
-                                        <input type="text" id="record-search" placeholder="Filter by subject...">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="results-table-wrapper">
-                                <table class="results-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Time & Date</th>
-                                            <th>Subject</th>
-                                            <th>Subject Code</th>
-                                            <th>Attendance Ratio</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="records-table-body">
-                                        <!-- Injected dynamically -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                </main>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- ==================== MODAL 1: SUBJECT ENROLLMENT (STUDENT) ==================== -->
-    <div class="modal-overlay hidden" id="modal-enroll">
-        <div class="modal-box glass-panel">
-            <div class="modal-header">
-                <h2>Enroll in Course</h2>
-                <button class="btn-close-modal" id="btn-close-enroll-modal">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>Choose an available course from the catalog to enroll yourself.</p>
-                <div class="enroll-catalog-wrapper">
-                    <table class="enroll-table">
-                        <thead>
-                            <tr>
-                                <th>Subject Code</th>
-                                <th>Subject Name</th>
-                                <th>Section</th>
-                                <th>Instructor</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="enroll-catalog-body">
-                            <!-- Injected dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    <div class="camera-frame">
+      <video id="s-video" autoplay playsinline muted></video>
+      <div class="cam-empty-state" id="s-cam-empty">
+        <span style="font-size:3rem">📷</span>
+        <p style="font-size:0.9rem;font-weight:600">Camera is ready</p>
+      </div>
     </div>
 
-    <!-- ==================== MODAL 2: CREATE SUBJECT (TEACHER) ==================== -->
-    <div class="modal-overlay hidden" id="modal-create-subject">
-        <div class="modal-box glass-panel small-modal-box">
-            <div class="modal-header">
-                <h2>Create New Subject</h2>
-                <button class="btn-close-modal" id="btn-close-subject-modal">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <form id="form-create-subject" class="modal-body">
-                <div class="input-group">
-                    <label for="new-subject-name">Subject Name</label>
-                    <input type="text" id="new-subject-name" placeholder="E.g. Artificial Intelligence" required>
-                </div>
-                <div class="input-group">
-                    <label for="new-subject-code">Subject Code</label>
-                    <input type="text" id="new-subject-code" placeholder="E.g. CSE-401" required>
-                </div>
-                <div class="input-group">
-                    <label for="new-subject-section">Section</label>
-                    <input type="text" id="new-subject-section" placeholder="E.g. A" required>
-                </div>
-                
-                <div class="modal-footer-actions">
-                    <button type="button" class="btn btn-secondary" id="btn-cancel-create-subject">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Subject</button>
-                </div>
-            </form>
+    <div class="cam-actions-box">
+      <button class="btn-take-photo-large" onclick="studentTakePhoto()">Take Photo</button>
+      <button class="btn-blue-pill" id="btn-s-cam" onclick="toggleCam('s')" style="justify-content:center">📷 Start Webcam Preview</button>
+
+      <!-- Voice Controller Bar -->
+      <div class="voice-badge-bar">
+        <div class="v-left">
+          <span class="v-dot" id="s-vdot"></span>
+          <span class="v-label">🎙 Voice AI</span>
+          <span class="v-status" id="s-vtxt">Say "take photo" or "scan"...</span>
         </div>
+        <div style="display:flex;gap:0.4rem">
+          <button class="btn-blue-pill" id="btn-s-tts" onclick="toggleTTS()" style="font-size:0.72rem;padding:0.3rem 0.7rem">🔊 TTS On</button>
+          <button class="btn-black-pill" id="btn-s-listen" onclick="toggleListening()" style="font-size:0.72rem;padding:0.3rem 0.7rem">🎙 Listen</button>
+        </div>
+      </div>
+
+      <!-- Scan result notification -->
+      <div class="result-card" id="s-scan-result">
+        <div style="font-weight:800;font-size:1.05rem;color:#1a1a2e">Aarav Sharma</div>
+        <div style="font-size:0.85rem;color:#64748b;margin:0.2rem 0 0.5rem">CS2023-014 • Confidence: 99.4%</div>
+        <span style="background:#10b981;color:#fff;padding:3px 12px;border-radius:999px;font-size:0.75rem;font-weight:800">✅ ATTENDANCE MARKED</span>
+      </div>
+      <div id="student-register-box" style="display:none;width:100%;background:#fff;border-radius:16px;padding:1rem;border:1px solid #d9daf0">
+        <strong>Face not recognized. Create a student profile.</strong>
+        <input class="sc-input-box" id="student-reg-name" placeholder="Your full name" style="margin-top:.7rem" />
+        <input class="sc-input-box" id="student-reg-audio" type="file" accept="audio/*" style="margin-top:.7rem" />
+        <button class="btn-pink-pill" onclick="registerStudent()" style="margin-top:.7rem">Create Student Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="sub-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     3. TEACHER FACE LOGIN
+══════════════════════════════════════════════════ -->
+<section class="page inner-page-bg" id="page-teacher-login">
+  <header class="sc-navbar">
+    <div class="sc-brand" onclick="navigate('home')">
+      <div class="mini-logo">🎓</div>
+      <div class="mini-title">SNAP<br>CLASS</div>
+    </div>
+    <button class="btn-pink-pill" onclick="navigate('home')">Go back to Home <span style="opacity:0.75;font-size:0.75rem">Ctrl + Backspace</span></button>
+  </header>
+
+  <div class="inner-content-center">
+    <h2 class="section-title">Login using FaceID</h2>
+    <div class="cam-label">Position your face in the center</div>
+    
+    <div class="camera-frame">
+      <video id="t-video" autoplay playsinline muted></video>
+      <div class="cam-empty-state" id="t-cam-empty">
+        <span style="font-size:3rem">📷</span>
+        <p style="font-size:0.9rem;font-weight:600">Camera is ready</p>
+      </div>
     </div>
 
-    <!-- ==================== MODAL 3: VIEW ATTENDANCE SESSION DETAIL ==================== -->
-    <div class="modal-overlay hidden" id="modal-session-detail">
-        <div class="modal-box glass-panel">
-            <div class="modal-header">
-                <h2>Session Attendance Details</h2>
-                <button class="btn-close-modal" id="btn-close-detail-modal">
-                    <span class="material-symbols-rounded">close</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="session-detail-meta">
-                    <p><strong>Subject:</strong> <span id="detail-session-subject">AI</span></p>
-                    <p><strong>Time:</strong> <span id="detail-session-time">10:00 AM</span></p>
-                </div>
-                <div class="enroll-catalog-wrapper">
-                    <table class="enroll-table">
-                        <thead>
-                            <tr>
-                                <th>Student ID</th>
-                                <th>Student Name</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="detail-session-body">
-                            <!-- Injected dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+    <div class="cam-actions-box">
+      <div class="sc-form-group" style="margin-bottom:0">
+        <input class="sc-input-box" id="teacher-username" type="text" placeholder="Teacher username" autocomplete="username" />
+        <input class="sc-input-box" id="teacher-password" type="password" placeholder="Password" autocomplete="current-password" style="margin-top:.6rem" />
+      </div>
+      <button class="btn-pink-pill" onclick="teacherLogin()" style="justify-content:center">Login with username and password</button>
+      <button class="btn-take-photo-large" onclick="teacherTakePhoto()">Take Photo</button>
+      <button class="btn-blue-pill" id="btn-t-cam" onclick="toggleCam('t')" style="justify-content:center">📷 Start Webcam Preview</button>
+      <div style="text-align:center;margin-top:0.4rem">
+        <button class="btn-pink-pill" onclick="navigate('teacher-register')">Register New Teacher Profile →</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="sub-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     4. REGISTER TEACHER PROFILE
+══════════════════════════════════════════════════ -->
+<section class="page inner-page-bg" id="page-teacher-register">
+  <header class="sc-navbar">
+    <div class="sc-brand" onclick="navigate('home')">
+      <div class="mini-logo">🎓</div>
+      <div class="mini-title">SNAP<br>CLASS</div>
+    </div>
+    <button class="btn-pink-pill" onclick="navigate('home')">Go back to Home <span style="opacity:0.75;font-size:0.75rem">Ctrl + Backspace</span></button>
+  </header>
+
+  <div class="inner-content-center" style="max-width:540px">
+    <h2 class="section-title">Register your teacher profile</h2>
+    
+    <div class="sc-form-group">
+      <label>Enter username</label>
+      <input class="sc-input-box" type="text" id="reg-username" placeholder="e.g. dr.sanjay" />
     </div>
 
-    <!-- JavaScript Application -->
-    <script src="app.js"></script>
+    <div class="sc-form-group">
+      <label>Enter name</label>
+      <input class="sc-input-box" type="text" id="reg-name" placeholder="e.g. Dr. Sanjay Mehta" />
+    </div>
+
+    <div class="sc-form-group">
+      <label>Enter password</label>
+      <div class="pw-container">
+        <input class="sc-input-box" type="password" id="reg-pass" placeholder="••••••••" />
+        <button class="pw-toggle-btn" type="button" onclick="togglePasswordVisibility('reg-pass', this)">👁</button>
+      </div>
+    </div>
+
+    <div class="sc-form-group">
+      <label>Confirm your password</label>
+      <div class="pw-container">
+        <input class="sc-input-box" type="password" id="reg-pass2" placeholder="••••••••" />
+        <button class="pw-toggle-btn" type="button" onclick="togglePasswordVisibility('reg-pass2', this)">👁</button>
+      </div>
+    </div>
+
+    <div id="reg-err-msg" style="display:none;color:#e93b77;font-size:0.85rem;font-weight:700;margin-bottom:1rem"></div>
+
+    <div style="display:flex;gap:0.75rem;width:100%;flex-wrap:wrap">
+      <button class="btn-pink-pill" style="flex:1;justify-content:center;padding:0.8rem 1.2rem;font-size:0.92rem" onclick="submitTeacherRegistration()">
+        👤 Register now <span style="opacity:0.75;font-size:0.75rem">Ctrl + Enter</span>
+      </button>
+      <button class="btn-blue-pill" style="flex:1;justify-content:center;padding:0.8rem 1.2rem;font-size:0.92rem" onclick="navigate('teacher-login')">
+        👥 Login instead
+      </button>
+    </div>
+  </div>
+
+  <footer class="sub-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     5. TEACHER DASHBOARD
+══════════════════════════════════════════════════ -->
+<section class="page inner-page-bg" id="page-teacher-dashboard">
+  <header class="sc-navbar">
+    <div class="sc-brand" onclick="navigate('home')">
+      <div class="mini-logo">🎓</div>
+      <div class="mini-title">SNAP<br>CLASS</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.8rem">
+      <span style="font-weight:800;font-size:0.95rem" id="teacher-header-name">Welcome, Ojas Anand</span>
+      <button class="btn-pink-pill" onclick="navigate('home')">Logout <span style="opacity:0.75;font-size:0.75rem">Ctrl + Backspace</span></button>
+    </div>
+  </header>
+
+  <div class="dashboard-container">
+    <!-- Top 3 Tabs -->
+    <div class="tab-pills-row">
+      <button class="nav-tab-btn" id="ttab-take" onclick="switchTeacherView('take')">🎯 Take Attendance</button>
+      <button class="nav-tab-btn active" id="ttab-manage" onclick="switchTeacherView('manage')">📖 Manage Subjects</button>
+      <button class="nav-tab-btn" id="ttab-records" onclick="switchTeacherView('records')">🖨 Attendance Records</button>
+    </div>
+
+    <!-- ── VIEW 1: TAKE ATTENDANCE ── -->
+    <div id="tview-take" style="display:none">
+      <h2 class="section-title" style="text-align:left;margin-bottom:1.5rem">Take AI Attendance</h2>
+      
+      <div style="margin-bottom:1.5rem">
+        <label style="display:block;font-size:0.9rem;font-weight:700;margin-bottom:0.4rem">Select Subject</label>
+        <div style="display:flex;gap:0.8rem;flex-wrap:wrap">
+          <select class="sc-input-box" id="take-subject-select" style="max-width:380px">
+            <option value="">No subjects loaded</option>
+          </select>
+          <button class="btn-blue-pill" onclick="openClassCam()">📁 Add Photos</button>
+          <input id="class-photo-input" type="file" accept="image/*" multiple hidden onchange="addClassPhotos(event)" />
+        </div>
+      </div>
+
+      <div class="camera-frame" style="max-width:500px;margin-bottom:1.2rem">
+        <video id="class-video" autoplay playsinline muted></video>
+        <div class="cam-empty-state" id="class-cam-empty">
+          <span style="font-size:3rem">📸</span>
+          <p style="font-size:0.9rem;font-weight:600">Classroom feed standby</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-bottom:1rem">
+        <button class="btn-black-pill" onclick="clearClassCam()">🗑 Clear all photos</button>
+        <button class="btn-pink-pill" onclick="runAnalysis()">📷 Run Face Analysis</button>
+        <button class="btn-blue-pill" id="btn-voice-toggle" onclick="toggleVoiceAttendance()">🎙 Use Voice Attendance</button>
+        <input id="class-audio-input" type="file" accept="audio/*" capture hidden onchange="runVoiceAnalysis(event)" />
+      </div>
+
+      <div class="result-card" id="analysis-result">
+        <div style="font-weight:800;font-size:1.05rem;color:#1a1a2e">Face Analysis Complete</div>
+        <div style="font-size:0.85rem;color:#64748b;margin:0.2rem 0 0.5rem" id="analysis-meta">3 Students detected • 0 Spoof attempts</div>
+        <span style="background:#10b981;color:#fff;padding:3px 12px;border-radius:999px;font-size:0.75rem;font-weight:800">✅ ATTENDANCE SYNCED TO DATABASE</span>
+      </div>
+    </div>
+
+    <!-- ── VIEW 2: MANAGE SUBJECTS (Matches User Screenshot) ── -->
+    <div id="tview-manage">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.8rem">
+        <h2 class="section-title" style="text-align:left;margin:0">Manage<br>Subjects</h2>
+        <button class="btn-pink-pill" onclick="toggleNewSubjectModal()">Create New Subject</button>
+      </div>
+
+      <!-- New Subject Inline Form -->
+      <div id="new-subj-box" style="display:none;background:#fff;border-radius:20px;padding:1.5rem;margin-bottom:1.5rem;border:1px solid #d9daf0">
+        <h3 style="font-size:1.1rem;font-weight:800;margin-bottom:1rem">Add Subject</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0.8rem;margin-bottom:1rem">
+          <div><label style="font-size:0.82rem;font-weight:700">Subject Name</label><input class="sc-input-box" id="new-sname" placeholder="e.g. AI & Robotics" /></div>
+          <div><label style="font-size:0.82rem;font-weight:700">Code</label><input class="sc-input-box" id="new-scode" placeholder="e.g. CSE302" /></div>
+          <div><label style="font-size:0.82rem;font-weight:700">Section</label><input class="sc-input-box" id="new-ssec" placeholder="A" /></div>
+        </div>
+        <div style="display:flex;gap:0.6rem">
+          <button class="btn-pink-pill" onclick="saveNewSubject()">Save Subject</button>
+          <button class="btn-black-pill" onclick="toggleNewSubjectModal()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- List of Subjects Cards -->
+      <div id="subjects-card-list"></div>
+    </div>
+
+    <!-- ── VIEW 3: ATTENDANCE RECORDS ── -->
+    <div id="tview-records" style="display:none">
+      <h2 class="section-title" style="text-align:left;margin-bottom:1.5rem">Attendance Records</h2>
+      <div class="table-container">
+        <table class="custom-table">
+          <thead>
+            <tr><th>Student</th><th>Roll Number</th><th>Subject</th><th>Date</th><th>Time</th><th>Status</th><th>Face Match</th></tr>
+          </thead>
+          <tbody id="records-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer class="sub-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     6. STUDENT DASHBOARD
+══════════════════════════════════════════════════ -->
+<section class="page inner-page-bg" id="page-student-dashboard">
+  <header class="sc-navbar">
+    <div class="sc-brand" onclick="navigate('home')">
+      <div class="mini-logo">🎓</div>
+      <div class="mini-title">SNAP<br>CLASS</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.8rem">
+      <span style="font-weight:800;font-size:0.95rem">Welcome, Aarav Sharma</span>
+      <button class="btn-pink-pill" onclick="logout()">Logout <span style="opacity:0.75;font-size:0.75rem">Ctrl + Backspace</span></button>
+    </div>
+  </header>
+
+  <div class="dashboard-container">
+    <h2 class="section-title" style="text-align:left;margin-bottom:1.5rem">My Attendance Hub</h2>
+    <div class="table-container">
+      <table class="custom-table">
+        <thead>
+          <tr><th>Subject</th><th>Date</th><th>Time</th><th>Status</th><th>Confidence</th></tr>
+        </thead>
+        <tbody id="student-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="sub-footer">Created with <span class="heart">❤️</span> by Abhinav Anand</footer>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     JAVASCRIPT LOGIC
+══════════════════════════════════════════════════ -->
+<script>
+/* ── Router ────────────────────────────────────────── */
+function navigate(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + pageId);
+  if (target) {
+    target.classList.add('active');
+    window.scrollTo(0, 0);
+  }
+}
+
+/* ── Keyboard Shortcuts (Ctrl + Backspace / Ctrl + Enter) ── */
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'Backspace') {
+    e.preventDefault();
+    navigate('home');
+  }
+  if (e.ctrlKey && e.key === 'Enter') {
+    const regPage = document.getElementById('page-teacher-register');
+    if (regPage && regPage.classList.contains('active')) {
+      submitTeacherRegistration();
+    }
+  }
+});
+
+/* ── App Data ──────────────────────────────────────── */
+let SUBJECTS = [
+  { name: 'Computer Programming', code: 'CSE101', section: 'A', students: 0, classes: 0 },
+  { name: 'Data Structures', code: 'CSE201', section: 'B', students: 0, classes: 0 }
+];
+const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8000/api' : '/api';
+let currentTeacher = null;
+let currentStudent = null;
+let classPhotos = [];
+
+async function apiRequest(path, options = {}) {
+  const response = await fetch(API_BASE + path, options);
+  let payload = {};
+  try { payload = await response.json(); } catch (_) { /* keep empty payload for non-JSON errors */ }
+  if (!response.ok) throw new Error(payload.detail || 'Request failed.');
+  return payload;
+}
+
+function showError(message) { alert(message); }
+
+function logout() {
+  currentTeacher = null;
+  currentStudent = null;
+  stopListening();
+  navigate('home');
+}
+
+async function loadTeacherSubjects() {
+  if (!currentTeacher) return;
+  const subjects = await apiRequest(`/teacher/${currentTeacher.teacher_id}/subjects`);
+  SUBJECTS = subjects.map(subject => ({
+    id: subject.subject_id,
+    name: subject.name,
+    code: subject.subject_code,
+    section: subject.section,
+    students: subject.total_students || 0,
+    classes: subject.total_classes || 0
+  }));
+  const select = document.getElementById('take-subject-select');
+  select.innerHTML = SUBJECTS.length
+    ? SUBJECTS.map(subject => `<option value="${subject.id}">${subject.name} - ${subject.code}</option>`).join('')
+    : '<option value="">No subjects loaded</option>';
+  renderSubjectsCards();
+}
+
+async function loadStudentDashboard() {
+  if (!currentStudent) return;
+  const dashboard = await apiRequest(`/student/${currentStudent.student_id}/dashboard`);
+  ATTENDANCE_LOGS = dashboard.logs.map(log => ({
+    student: currentStudent.name,
+    roll: currentStudent.student_id,
+    subject: log.subjects?.name || 'Unknown subject',
+    date: log.timestamp?.slice(0, 10) || '',
+    time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '',
+    status: log.is_present ? 'Present' : 'Absent',
+    match: log.is_present ? 'Matched' : '--'
+  }));
+  renderStudentTable();
+}
+
+function captureVideoFrame(video, filename) {
+  if (!video || video.readyState < 2 || !video.videoWidth) {
+    throw new Error('Start the webcam and wait for the preview before taking a photo.');
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  return new Promise(resolve => canvas.toBlob(blob => resolve(new File([blob], filename, { type: 'image/jpeg' })), 'image/jpeg', 0.92));
+}
+
+let ATTENDANCE_LOGS = [
+  { student: 'Aarav Sharma', roll: 'CS2023-014', subject: 'Computer Programming', date: '2024-01-15', time: '09:02 AM', status: 'Present', match: '99.4%' },
+  { student: 'Priya Patel', roll: 'CS2023-089', subject: 'Computer Programming', date: '2024-01-15', time: '09:04 AM', status: 'Present', match: '98.7%' },
+  { student: 'Rohan Verma', roll: 'CS2023-045', subject: 'Data Structures', date: '2024-01-15', time: '09:12 AM', status: 'Absent', match: '--' },
+  { student: 'Ananya Gupta', roll: 'CS2023-033', subject: 'Computer Programming', date: '2024-01-14', time: '10:01 AM', status: 'Present', match: '99.8%' }
+];
+
+/* ── Teacher Tab Switcher ──────────────────────────── */
+function switchTeacherView(tab) {
+  ['take', 'manage', 'records'].forEach(t => {
+    document.getElementById('tview-' + t).style.display = t === tab ? 'block' : 'none';
+    const btn = document.getElementById('ttab-' + t);
+    if (btn) btn.className = 'nav-tab-btn' + (t === tab ? ' active' : '');
+  });
+  if (tab === 'manage') renderSubjectsCards();
+  if (tab === 'records') renderRecordsTable();
+}
+
+/* ── Render Subject Cards (Matches Screenshot) ─────── */
+function renderSubjectsCards() {
+  const container = document.getElementById('subjects-card-list');
+  if (SUBJECTS.length === 0) {
+    container.innerHTML = '<p style="color:#64748b;text-align:center;padding:2rem">No subjects created yet.</p>';
+    return;
+  }
+  container.innerHTML = SUBJECTS.map((s, idx) => `
+    <div class="subject-white-card">
+      <div class="subj-title">${s.name}</div>
+      <div class="subj-details">
+        Code : <span class="badge-code">${s.code}</span> | Section : ${s.section}
+      </div>
+      <div class="stats-pills-row">
+        <div class="stat-pill">👥 ${s.students} Students</div>
+        <div class="stat-pill">🏫 ${s.classes} Classes</div>
+      </div>
+      <button class="btn-pink-pill" onclick="shareSubjectCode(${idx})">
+        🔗 Share Code: ${s.name}
+      </button>
+    </div>
+  `).join('');
+}
+
+function shareSubjectCode(idx) {
+  const s = SUBJECTS[idx];
+  alert(`Share Code: ${s.code}\nStudents can join "${s.name}" using this code.`);
+  speak(`Share code for ${s.name} is ${s.code.split('').join(' ')}`);
+}
+
+function toggleNewSubjectModal() {
+  const box = document.getElementById('new-subj-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveNewSubject() {
+  const name = document.getElementById('new-sname').value.trim();
+  const code = document.getElementById('new-scode').value.trim();
+  const sec = document.getElementById('new-ssec').value.trim() || 'A';
+  if (!name || !code) {
+    alert('Please enter subject name and code');
+    return;
+  }
+  if (!currentTeacher) return showError('Log in as a teacher first.');
+  apiRequest('/teacher/subjects/create', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ subject_code: code, name, section: sec, teacher_id: currentTeacher.teacher_id }) })
+    .then(() => loadTeacherSubjects())
+    .then(() => { document.getElementById('new-sname').value = ''; document.getElementById('new-scode').value = ''; document.getElementById('new-ssec').value = ''; toggleNewSubjectModal(); speak(`Subject ${name} created successfully.`); })
+    .catch(error => showError(error.message));
+}
+
+/* ── Render Records Tables ─────────────────────────── */
+function renderRecordsTable() {
+  document.getElementById('records-table-body').innerHTML = ATTENDANCE_LOGS.map(l => `
+    <tr>
+      <td>${l.student}</td>
+      <td>${l.roll}</td>
+      <td>${l.subject}</td>
+      <td>${l.date}</td>
+      <td>${l.time}</td>
+      <td class="${l.status === 'Present' ? 'status-present' : 'status-absent'}">${l.status}</td>
+      <td>${l.match}</td>
+    </tr>
+  `).join('');
+}
+
+function renderStudentTable() {
+  const my = ATTENDANCE_LOGS;
+  document.getElementById('student-table-body').innerHTML = my.map(l => `
+    <tr>
+      <td>${l.subject}</td>
+      <td>${l.date}</td>
+      <td>${l.time}</td>
+      <td class="${l.status === 'Present' ? 'status-present' : 'status-absent'}">${l.status}</td>
+      <td>${l.match}</td>
+    </tr>
+  `).join('');
+}
+
+/* ── Teacher Registration Form ─────────────────────── */
+function togglePasswordVisibility(id, btn) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+async function submitTeacherRegistration() {
+  const username = document.getElementById('reg-username').value.trim();
+  const name = document.getElementById('reg-name').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  const err = document.getElementById('reg-err-msg');
+
+  err.style.display = 'none';
+  if (!username || !name) {
+    err.textContent = '⚠️ Please enter both username and name.';
+    err.style.display = 'block';
+    return;
+  }
+  if (pass.length < 6) {
+    err.textContent = '⚠️ Password must be at least 6 characters long.';
+    err.style.display = 'block';
+    return;
+  }
+  if (pass !== pass2) {
+    err.textContent = '⚠️ Passwords do not match.';
+    err.style.display = 'block';
+    return;
+  }
+
+  try {
+    const result = await apiRequest('/teacher/register', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username, password: pass, name }) });
+    if (!result.success) throw new Error(result.detail || 'Registration failed.');
+    err.textContent = 'Account created. Log in to continue.';
+    err.style.display = 'block';
+    navigate('teacher-login');
+  } catch (error) { err.textContent = error.message; err.style.display = 'block'; }
+}
+
+/* ── Webcam Handling ───────────────────────────────── */
+let activeStreams = {};
+
+function toggleCam(prefix) {
+  const btn = document.getElementById('btn-' + prefix + '-cam');
+  const vid = document.getElementById(prefix + '-video');
+  const ph = document.getElementById(prefix + '-cam-empty');
+
+  if (!activeStreams[prefix]) {
+    if (!navigator.mediaDevices?.getUserMedia) return showError('Camera access is unavailable. Open this page on HTTPS or localhost.');
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false }).then(stream => {
+      activeStreams[prefix] = stream;
+      vid.srcObject = stream;
+      vid.style.display = 'block';
+      if (ph) ph.style.display = 'none';
+      if (btn) btn.textContent = '📷 Turn Off Camera';
+    }).catch(() => {
+      alert('Camera access denied or unavailable.');
+    });
+  } else {
+    activeStreams[prefix].getTracks().forEach(t => t.stop());
+    activeStreams[prefix] = null;
+    vid.style.display = 'none';
+    if (ph) ph.style.display = '';
+    if (btn) btn.textContent = '📷 Start Webcam Preview';
+  }
+}
+
+function openClassCam() {
+  document.getElementById('class-photo-input').click();
+}
+
+function addClassPhotos(event) {
+  classPhotos = [...classPhotos, ...Array.from(event.target.files || [])];
+  document.getElementById('analysis-meta').textContent = `${classPhotos.length} photo${classPhotos.length === 1 ? '' : 's'} ready for analysis`;
+}
+
+function clearClassCam() {
+  classPhotos = [];
+  document.getElementById('class-photo-input').value = '';
+  if (activeStreams['class']) {
+    activeStreams['class'].getTracks().forEach(t => t.stop());
+    activeStreams['class'] = null;
+  }
+  document.getElementById('class-video').style.display = 'none';
+  document.getElementById('class-cam-empty').style.display = '';
+  document.getElementById('analysis-result').classList.remove('active');
+}
+
+/* ── Face ID Trigger Actions ───────────────────────── */
+async function studentTakePhoto() {
+  try {
+    const file = await captureVideoFrame(document.getElementById('s-video'), 'student-login.jpg');
+    const data = new FormData(); data.append('file', file);
+    const result = await apiRequest('/student/login-face', { method: 'POST', body: data });
+    if (!result.success) throw new Error(result.detail || 'Face not recognized.');
+    currentStudent = result.student;
+    document.getElementById('s-scan-result').classList.add('active');
+    document.getElementById('s-scan-result').querySelector('div').textContent = result.student.name;
+    speak(`Welcome back, ${result.student.name}.`);
+    setTimeout(() => { navigate('student-dashboard'); loadStudentDashboard(); }, 700);
+  } catch (error) {
+    document.getElementById('student-register-box').style.display = 'block';
+    showError(error.message);
+  }
+}
+
+async function registerStudent() {
+  const name = document.getElementById('student-reg-name').value.trim();
+  if (!name) return showError('Enter your full name.');
+  try {
+    const image = await captureVideoFrame(document.getElementById('s-video'), 'student-registration.jpg');
+    const data = new FormData(); data.append('name', name); data.append('image', image);
+    const audio = document.getElementById('student-reg-audio').files[0];
+    if (audio) data.append('audio', audio);
+    const result = await apiRequest('/student/register', { method: 'POST', body: data });
+    currentStudent = result.student;
+    navigate('student-dashboard'); loadStudentDashboard();
+  } catch (error) { showError(error.message); }
+}
+
+async function teacherLogin() {
+  try {
+    const result = await apiRequest('/teacher/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ username: document.getElementById('teacher-username').value.trim(), password: document.getElementById('teacher-password').value }) });
+    currentTeacher = result.teacher;
+    document.getElementById('teacher-header-name').textContent = 'Welcome, ' + currentTeacher.name;
+    navigate('teacher-dashboard'); await loadTeacherSubjects(); switchTeacherView('manage');
+  } catch (error) { showError(error.message); }
+}
+
+async function teacherTakePhoto() {
+  return teacherLogin();
+}
+
+async function runAnalysis() {
+  const subjectId = document.getElementById('take-subject-select').value;
+  if (!subjectId || !classPhotos.length) return showError('Select a subject and add at least one photo.');
+  try {
+    const data = new FormData(); data.append('subject_id', subjectId); classPhotos.forEach(file => data.append('files', file));
+    const result = await apiRequest('/teacher/take-attendance-face', { method: 'POST', body: data });
+    const present = result.results.filter(item => item.is_present);
+    const timestamp = new Date().toISOString();
+    await apiRequest('/teacher/save-attendance', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(result.results.map(item => ({ student_id: item.student_id, subject_id: Number(subjectId), timestamp, is_present: item.is_present }))) });
+    document.getElementById('analysis-meta').textContent = `${present.length} students detected`;
+    document.getElementById('analysis-result').classList.add('active');
+    speak(`Face analysis complete. ${present.length} students marked present.`);
+  } catch (error) { showError(error.message); }
+}
+
+let voiceAttActive = false;
+function toggleVoiceAttendance() {
+  const btn = document.getElementById('btn-voice-toggle');
+  if (!currentTeacher) return showError('Log in as a teacher first.');
+  document.getElementById('class-audio-input').click();
+  btn.textContent = '🎙 Choose classroom recording';
+}
+
+async function runVoiceAnalysis(event) {
+  const audio = event.target.files[0];
+  const subjectId = document.getElementById('take-subject-select').value;
+  if (!audio || !subjectId) return showError('Select a subject and audio recording first.');
+  try {
+    const data = new FormData(); data.append('subject_id', subjectId); data.append('audio', audio);
+    const result = await apiRequest('/teacher/take-attendance-voice', { method: 'POST', body: data });
+    const timestamp = new Date().toISOString();
+    await apiRequest('/teacher/save-attendance', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(result.results.map(item => ({ student_id: item.student_id, subject_id: Number(subjectId), timestamp, is_present: item.is_present }))) });
+    const present = result.results.filter(item => item.is_present).length;
+    document.getElementById('analysis-meta').textContent = `${present} students detected by voice`;
+    document.getElementById('analysis-result').classList.add('active');
+    speak(`Voice analysis complete. ${present} students marked present.`);
+  } catch (error) { showError(error.message); }
+  event.target.value = '';
+}
+
+/* ── Voice Engine (TTS + Speech Recognition) ────────── */
+let ttsEnabled = true;
+let isListening = false;
+let speechRecog = null;
+
+function speak(text) {
+  if (!ttsEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.05;
+  utter.pitch = 1.0;
+  utter.lang = 'en-IN';
+
+  const dot = document.getElementById('s-vdot');
+  if (dot) {
+    dot.classList.add('speaking');
+    utter.onend = () => dot.classList.remove('speaking');
+  }
+  window.speechSynthesis.speak(utter);
+}
+
+function toggleTTS() {
+  ttsEnabled = !ttsEnabled;
+  const btn = document.getElementById('btn-s-tts');
+  if (ttsEnabled) {
+    if (btn) btn.textContent = '🔊 TTS On';
+    speak('Voice announcements enabled.');
+  } else {
+    if (btn) btn.textContent = '🔇 TTS Off';
+    window.speechSynthesis && window.speechSynthesis.cancel();
+  }
+}
+
+function toggleListening() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Voice recognition requires Google Chrome.');
+    return;
+  }
+  if (isListening) stopListening();
+  else startListening();
+}
+
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  speechRecog = new SR();
+  speechRecog.continuous = true;
+  speechRecog.lang = 'en-IN';
+  speechRecog.interimResults = true;
+
+  speechRecog.onstart = () => {
+    isListening = true;
+    document.getElementById('s-vdot').classList.add('listening');
+    document.getElementById('btn-s-listen').textContent = '🛑 Stop';
+    document.getElementById('s-vtxt').textContent = 'Listening...';
+    speak('Voice active. Say take photo or go home.');
+  };
+
+  speechRecog.onresult = (e) => {
+    let transcript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) transcript += e.results[i][0].transcript.toLowerCase();
+    }
+    if (transcript) {
+      document.getElementById('s-vtxt').textContent = `"${transcript}"`;
+      handleVoiceCmd(transcript);
+    }
+  };
+
+  speechRecog.onerror = () => stopListening();
+  speechRecog.onend = () => { if (isListening) speechRecog.start(); };
+  speechRecog.start();
+}
+
+function stopListening() {
+  isListening = false;
+  if (speechRecog) { speechRecog.stop(); speechRecog = null; }
+  document.getElementById('s-vdot').classList.remove('listening', 'speaking');
+  document.getElementById('btn-s-listen').textContent = '🎙 Listen';
+  document.getElementById('s-vtxt').textContent = 'Say "take photo"...';
+}
+
+function handleVoiceCmd(cmd) {
+  if (cmd.includes('take photo') || cmd.includes('scan') || cmd.includes('login')) {
+    studentTakePhoto();
+  } else if (cmd.includes('home') || cmd.includes('back')) {
+    navigate('home');
+  } else if (cmd.includes('teacher')) {
+    navigate('teacher-login');
+  }
+}
+
+/* ── Init ──────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  renderSubjectsCards();
+  renderRecordsTable();
+  renderStudentTable();
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+  }
+});
+</script>
 </body>
 </html>
