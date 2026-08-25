@@ -1,26 +1,29 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.1
+jinja2>=3.1.3
+
 # Utilities
-numpy
-pandas
+numpy>=1.24.0
+pandas>=2.0.0
+Pillow>=10.0.0
+segno>=1.6.0
 
 # Face Recognition
-scikit-learn
-dlib-bin
+scikit-learn>=1.3.0
+scipy>=1.11.0
+dlib-bin>=19.24.1
 git+https://github.com/ageitgey/face_recognition_models
-setuptools
+setuptools<70.0.0
 
-supabase
-bcrypt
+# Database & Auth
+supabase>=2.3.0
+bcrypt>=4.1.0
 
-segno
-pillow
-
-streamlit
-
-librosa
-resemblyzer
-
-# API Server
-fastapi
-uvicorn
-python-multipart
-python-dotenv
+# Voice Processing
+librosa>=0.10.0
+soundfile>=0.12.1
+resemblyzer>=0.1.4

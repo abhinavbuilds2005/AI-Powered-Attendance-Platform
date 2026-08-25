@@ -1,25 +1,27 @@
-# Database Credentials & Secrets
+# Environment variables and secrets
 .env
-.env.*
 .streamlit/secrets.toml
 
-# Virtual Environments
-venv/
-.venv/
-env/
-ENV/
-
-# Python Cache & compiled files
+# Python Cache & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
 .pytest_cache/
 .mypy_cache/
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 
 # Frontend builds
 dist/
 node_modules/
-
-# OS metadata
-.DS_Store
-Thumbs.db
