@@ -6,11 +6,12 @@ from fastapi.responses import FileResponse
 
 from src.routes.student import router as student_router
 from src.routes.teacher import router as teacher_router
+from src.routes.attendance import router as attendance_router
 from src.routes.common import router as common_router
 
 app = FastAPI(
-    title="AI Attendance API",
-    description="Professional refactored backend API for AI Attendance System supporting Face and Voice Recognition",
+    title="PresentAI API",
+    description="Professional full-stack backend API for AI Attendance System supporting Face and Voice Biometric Recognition",
     version="2.0.0"
 )
 
@@ -27,6 +28,7 @@ app.add_middleware(
 app.include_router(common_router, prefix="/api")
 app.include_router(student_router, prefix="/api")
 app.include_router(teacher_router, prefix="/api")
+app.include_router(attendance_router, prefix="/api")
 
 # Static files & Frontend serving
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
@@ -47,4 +49,3 @@ async def root():
 @app.head("/health")
 async def health_root():
     return {"status": "healthy"}
-

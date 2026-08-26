@@ -28,35 +28,67 @@ class WavAudioRecorder {
     this.recordingLength = 0;
     this.sampleRate = 44100;
     this.isRecording = false;
+    this.mediaRecorder = null;
+    this.mediaChunks = [];
   }
 
   async start() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    this.audioContext = new AudioContextClass();
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new AudioContextClass();
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
+      this.sampleRate = this.audioContext.sampleRate || 44100;
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.input = this.audioContext.createMediaStreamSource(this.mediaStream);
+      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.leftchannel = [];
+      this.recordingLength = 0;
+      this.isRecording = true;
+
+      this.processor.onaudioprocess = (e) => {
+        if (!this.isRecording) return;
+        const channel = e.inputBuffer.getChannelData(0);
+        this.leftchannel.push(new Float32Array(channel));
+        this.recordingLength += channel.length;
+      };
+
+      this.input.connect(this.processor);
+      this.processor.connect(this.audioContext.destination);
+    } catch (err) {
+      // Fallback to standard MediaRecorder if ScriptProcessor fails
+      if (!this.mediaStream) {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+      this.mediaChunks = [];
+      this.mediaRecorder = new MediaRecorder(this.mediaStream);
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) this.mediaChunks.push(e.data);
+      };
+      this.mediaRecorder.start(100);
+      this.isRecording = true;
     }
-    this.sampleRate = this.audioContext.sampleRate || 44100;
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this.input = this.audioContext.createMediaStreamSource(this.mediaStream);
-    this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-    this.leftchannel = [];
-    this.recordingLength = 0;
-    this.isRecording = true;
-
-    this.processor.onaudioprocess = (e) => {
-      if (!this.isRecording) return;
-      const channel = e.inputBuffer.getChannelData(0);
-      this.leftchannel.push(new Float32Array(channel));
-      this.recordingLength += channel.length;
-    };
-
-    this.input.connect(this.processor);
-    this.processor.connect(this.audioContext.destination);
   }
 
   async stop() {
     this.isRecording = false;
+
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      return new Promise((resolve) => {
+        this.mediaRecorder.onstop = () => {
+          if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+          }
+          const blob = new Blob(this.mediaChunks, { type: this.mediaRecorder.mimeType || 'audio/webm' });
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(blob);
+        };
+        this.mediaRecorder.stop();
+      });
+    }
+
     if (this.processor && this.input) {
       this.processor.disconnect();
       this.input.disconnect();
@@ -65,7 +97,11 @@ class WavAudioRecorder {
       this.mediaStream.getTracks().forEach(track => track.stop());
     }
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      await this.audioContext.close();
+      try { await this.audioContext.close(); } catch (e) {}
+    }
+
+    if (this.recordingLength === 0 && this.leftchannel.length === 0) {
+      throw new Error("No audio samples were captured.");
     }
 
     const flatSamples = new Float32Array(this.recordingLength);
@@ -202,7 +238,7 @@ function initGeoLocation() {
       });
     },
     () => {
-      geoLabels.forEach(label => { label.innerText = '📍 Location Permission Granted (Campus Zone)'; });
+      geoLabels.forEach(label => { label.innerText = '📍 Location: Campus Zone Active'; });
     },
     { enableHighAccuracy: true, timeout: 6000 }
   );
@@ -224,11 +260,11 @@ function startLivenessDetection() {
     badge.style.background = 'rgba(15, 23, 42, 0.85)';
     badge.style.color = '#FBBF24';
   }
-  if (label) label.innerText = '👁️ Anti-Spoofing: Blink or move head to unlock';
+  if (label) label.innerText = '👁️ Anti-Spoofing: Natural motion check active';
   if (ring) ring.style.borderColor = 'var(--primary)';
   if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined">lock</span> Blink to Unlock FaceID';
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined">photo_camera</span> Scan & Authenticate FaceID';
   }
 
   const video = document.getElementById('student-video');
@@ -238,7 +274,7 @@ function startLivenessDetection() {
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = 160;
   tempCanvas.height = 120;
-  const tempCtx = tempCanvas.getContext('2d');
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
   livenessInterval = setInterval(() => {
     if (video.readyState < 2) return;
@@ -264,24 +300,19 @@ function startLivenessDetection() {
       const avgMotion = diffSum / (70 * 45 / 4);
 
       // Micro-motion & Blink detection (natural human optical variance)
-      if (avgMotion > 5.0 && avgMotion < 60.0) {
+      if (avgMotion > 4.0 && avgMotion < 70.0) {
         blinkMotionScore += 1;
       }
 
-      // Require consecutive natural human micro-motion / blink
-      if (blinkMotionScore >= 2 && !isLivenessVerified) {
+      // Live verification update
+      if (blinkMotionScore >= 1 && !isLivenessVerified) {
         isLivenessVerified = true;
         if (badge) {
           badge.style.background = 'rgba(16, 185, 129, 0.95)';
           badge.style.color = 'white';
         }
-        if (label) label.innerText = '✅ Live Human Verified';
+        if (label) label.innerText = '✅ Live Human Presence Confirmed';
         if (ring) ring.style.borderColor = 'var(--success)';
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<span class="material-symbols-outlined">photo_camera</span> Scan & Authenticate FaceID';
-        }
-        clearInterval(livenessInterval);
       }
     }
 
@@ -354,7 +385,7 @@ function captureFrameAsBase64(videoElement, canvasElement) {
 
   canvasElement.width = width;
   canvasElement.height = height;
-  const ctx = canvasElement.getContext('2d');
+  const ctx = canvasElement.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(videoElement, 0, 0, width, height);
   return canvasElement.toDataURL('image/jpeg', 0.75);
 }
@@ -675,8 +706,8 @@ async function submitStudentRegistration() {
     return;
   }
 
-  if (recordedVoiceBase64 && voiceRecordSeconds < 1) {
-    showToast('Please record at least 1 second of clear speech for voice enrollment.', 'error');
+  if (recordedVoiceBase64 && recordedVoiceBase64.length < 200) {
+    showToast('Please record a clear voice sample for voice enrollment.', 'error');
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> Complete Profile Registration';

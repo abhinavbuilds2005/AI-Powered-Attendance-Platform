@@ -1,34 +1,125 @@
-from resemblyzer import VoiceEncoder, preprocess_wav
-import numpy as np
 import io
+import wave
+import numpy as np
 import librosa
-from typing import Dict, Optional, Tuple, Any
+import soundfile as sf
+from scipy.io import wavfile
+from resemblyzer import VoiceEncoder, preprocess_wav
+from typing import Dict, Optional, Tuple, Any, List
 
 _VOICE_ENCODER = None
 
-def load_voice_encoder():
+def load_voice_encoder() -> VoiceEncoder:
     """Lazy load VoiceEncoder model."""
     global _VOICE_ENCODER
     if _VOICE_ENCODER is None:
         _VOICE_ENCODER = VoiceEncoder()
     return _VOICE_ENCODER
 
-def get_voice_embedding(audio_bytes: bytes) -> Optional[list]:
+
+def load_audio_array(audio_bytes: bytes, target_sr: int = 16000) -> Tuple[np.ndarray, int]:
+    """
+    Robustly decodes audio bytes (WAV, PCM, OGG, FLAC, etc.) into a 16kHz mono float32 numpy array.
+    """
+    if not audio_bytes:
+        raise ValueError("Audio byte buffer is empty.")
+
+    # 1. Try SoundFile reader
+    try:
+        data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        if sr != target_sr:
+            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+        return data.astype(np.float32), target_sr
+    except Exception:
+        pass
+
+    # 2. Try standard wave library for raw WAV
+    try:
+        with wave.open(io.BytesIO(audio_bytes), 'rb') as wf:
+            n_channels = wf.getnchannels()
+            sampwidth = wf.getsampwidth()
+            framerate = wf.getframerate()
+            n_frames = wf.getnframes()
+            raw_frames = wf.readframes(n_frames)
+            
+            if sampwidth == 2:
+                data = np.frombuffer(raw_frames, dtype=np.int16).astype(np.float32) / 32768.0
+            elif sampwidth == 4:
+                data = np.frombuffer(raw_frames, dtype=np.int32).astype(np.float32) / 2147483648.0
+            elif sampwidth == 1:
+                data = (np.frombuffer(raw_frames, dtype=np.uint8).astype(np.float32) - 128.0) / 128.0
+            else:
+                data = np.frombuffer(raw_frames, dtype=np.float32)
+
+            if n_channels > 1:
+                data = data.reshape(-1, n_channels).mean(axis=1)
+
+            if framerate != target_sr:
+                data = librosa.resample(data, orig_sr=framerate, target_sr=target_sr)
+            return data.astype(np.float32), target_sr
+    except Exception:
+        pass
+
+    # 3. Try scipy.io.wavfile
+    try:
+        sr, data = wavfile.read(io.BytesIO(audio_bytes))
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+        elif data.dtype == np.uint8:
+            data = (data.astype(np.float32) - 128.0) / 128.0
+        elif data.dtype != np.float32:
+            data = data.astype(np.float32)
+
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        if sr != target_sr:
+            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+        return data.astype(np.float32), target_sr
+    except Exception:
+        pass
+
+    # 4. Try librosa direct
+    try:
+        data, sr = librosa.load(io.BytesIO(audio_bytes), sr=target_sr, mono=True)
+        return data.astype(np.float32), sr
+    except Exception as e:
+        raise ValueError(f"Could not decode audio in any known format: {e}")
+
+
+def get_voice_embedding(audio_bytes: bytes) -> Optional[List[float]]:
     """Generate 256-D voice embedding from audio bytes."""
     try:
+        if not audio_bytes:
+            return None
         encoder = load_voice_encoder()
-        audio, sr = librosa.load(io.BytesIO(audio_bytes), sr=16000)
+        audio, sr = load_audio_array(audio_bytes, target_sr=16000)
+        
+        # Audio length & silence check
+        if len(audio) < 1600:  # Minimum ~0.1s
+            return None
+        
+        if float(np.max(np.abs(audio))) < 0.001:
+            return None
+
         wav = preprocess_wav(audio)
+        if len(wav) == 0:
+            return None
+
         embedding = encoder.embed_utterance(wav)
         return embedding.tolist()
     except Exception as e:
         print('Voice recognition error:', e)
         return None
 
+
 def identify_speaker(
     new_embedding: np.ndarray,
-    candidates_dict: Dict[int, np.ndarray],
-    threshold: float = 0.65
+    candidates_dict: Dict[int, Any],
+    threshold: float = 0.45
 ) -> Tuple[Optional[int], float]:
     """Match voice embedding against candidate stored embeddings using cosine similarity."""
     if new_embedding is None or not candidates_dict:
@@ -38,26 +129,30 @@ def identify_speaker(
     best_score = -1.0
 
     try:
-        new_embedding = np.asarray(new_embedding, dtype=np.float64)
+        new_vec = np.asarray(new_embedding, dtype=np.float64)
     except (TypeError, ValueError):
         return None, 0.0
 
-    if new_embedding.ndim != 1 or not np.isfinite(new_embedding).all():
+    if new_vec.ndim != 1 or not np.isfinite(new_vec).all():
         return None, 0.0
 
-    new_norm = np.linalg.norm(new_embedding)
+    new_norm = np.linalg.norm(new_vec)
     if new_norm == 0:
         return None, 0.0
 
     for sid, stored_embedding in candidates_dict.items():
+        if stored_embedding is None:
+            continue
         try:
-            stored = np.asarray(stored_embedding, dtype=np.float64)
+            stored_vec = np.asarray(stored_embedding, dtype=np.float64)
         except (TypeError, ValueError):
             continue
-        stored_norm = np.linalg.norm(stored)
-        if stored.shape != new_embedding.shape or stored_norm == 0 or not np.isfinite(stored).all():
+        
+        stored_norm = np.linalg.norm(stored_vec)
+        if stored_vec.shape != new_vec.shape or stored_norm == 0 or not np.isfinite(stored_vec).all():
             continue
-        similarity = float(np.dot(new_embedding, stored) / (new_norm * stored_norm))
+            
+        similarity = float(np.dot(new_vec, stored_vec) / (new_norm * stored_norm))
         if similarity > best_score:
             best_score = similarity
             best_sid = sid
@@ -67,35 +162,62 @@ def identify_speaker(
 
     return None, best_score
 
+
 def process_bulk_audio(
     audio_bytes: bytes,
-    candidates_dict: Dict[int, np.ndarray],
-    threshold: float = 0.65
+    candidates_dict: Dict[int, Any],
+    threshold: float = 0.45
 ) -> Dict[int, float]:
     """Segment a classroom wide audio and detect all present voices."""
     try:
+        if not audio_bytes or not candidates_dict:
+            return {}
+            
         encoder = load_voice_encoder()
-        audio, sr = librosa.load(io.BytesIO(audio_bytes), sr=16000)
+        audio, sr = load_audio_array(audio_bytes, target_sr=16000)
         
-        # Split audio based on silence detection
-        segments = librosa.effects.split(audio, top_db=30)
+        if len(audio) < 1600:
+            return {}
+
         identified_results = {}
 
+        # 1. Whole clip match first (if short or single speaker)
+        try:
+            wav_full = preprocess_wav(audio)
+            if len(wav_full) > 0:
+                emb_full = encoder.embed_utterance(wav_full)
+                sid, score = identify_speaker(emb_full, candidates_dict, threshold)
+                if sid is not None:
+                    identified_results[sid] = round(score, 3)
+        except Exception:
+            pass
+
+        # 2. Split audio based on silence detection for multiple speakers
+        try:
+            segments = librosa.effects.split(audio, top_db=25)
+        except Exception:
+            segments = []
+
         for start, end in segments:
-            # Skip short segments (under 0.5s) to reduce noise
-            if (end - start) < sr * 0.5:
+            # Skip segments under 0.4s to reduce noise
+            if (end - start) < sr * 0.4:
                 continue
             
             segment_audio = audio[start:end]
-            wav = preprocess_wav(segment_audio)
-            embedding = encoder.embed_utterance(wav)
-
-            sid, score = identify_speaker(embedding, candidates_dict, threshold)
-            if sid is not None:
-                if sid not in identified_results or score > identified_results[sid]:
-                    identified_results[sid] = score
+            try:
+                wav = preprocess_wav(segment_audio)
+                if len(wav) == 0:
+                    continue
+                embedding = encoder.embed_utterance(wav)
+                sid, score = identify_speaker(embedding, candidates_dict, threshold)
+                if sid is not None:
+                    if sid not in identified_results or score > identified_results[sid]:
+                        identified_results[sid] = round(score, 3)
+            except Exception:
+                continue
 
         return identified_results
     except Exception as e:
         print('Bulk voice processing error:', e)
         return {}
+

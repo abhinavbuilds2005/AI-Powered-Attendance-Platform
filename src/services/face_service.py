@@ -100,33 +100,28 @@ def predict_attendance(
     if not model_data:
         return detected_students, [], len(encodings)
 
-    clf = model_data['clf']
     X_train = model_data['X']
     y_train = model_data['y']
-
     all_students = sorted(list(set(y_train)))
 
+    if len(X_train) == 0:
+        return detected_students, [], len(encodings)
+
     for encoding in encodings:
-        if model_data['clf'] is not None:
-            predicted_id = int(clf.predict([encoding])[0])
-        else:
-            predicted_id = int(all_students[0])
+        best_sid = None
+        min_dist = float('inf')
 
-        matching_embeddings = [
-            embedding for embedding, student_id in zip(X_train, y_train)
-            if student_id == predicted_id
-        ]
-        if not matching_embeddings:
-            continue
-        student_embedding = min(
-            matching_embeddings,
-            key=lambda stored: np.linalg.norm(stored - encoding)
-        )
-        best_match_score = np.linalg.norm(student_embedding - encoding)
+        for stored_emb, sid in zip(X_train, y_train):
+            try:
+                dist = float(np.linalg.norm(np.asarray(stored_emb) - np.asarray(encoding)))
+                if dist < min_dist:
+                    min_dist = dist
+                    best_sid = sid
+            except Exception:
+                continue
 
-        # Distance threshold (lower distance means better match)
-        resemblance_threshold = 0.6
-        if best_match_score <= resemblance_threshold:
-            detected_students[predicted_id] = True
+        # Standard face recognition Euclidean distance threshold (dlib/FaceNet 0.60)
+        if best_sid is not None and min_dist <= 0.60:
+            detected_students[int(best_sid)] = True
 
     return detected_students, all_students, len(encodings)
