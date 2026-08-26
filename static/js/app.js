@@ -9,6 +9,8 @@ let classroomCameraStream = null;
 let voiceRecordTimerInterval = null;
 let voiceRecordSeconds = 0;
 let pendingAttendanceLogs = [];
+let studentRegRecorder = null;
+let recordedVoiceBase64 = null;
 
 // Liveness & Geolocation State
 let isLivenessVerified = false;
