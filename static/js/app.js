@@ -158,7 +158,10 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = 'toast';
   toast.style.borderLeft = type === 'error' ? '4px solid var(--danger)' : (type === 'success' ? '4px solid var(--success)' : '4px solid var(--primary)');
-  toast.innerText = message;
+  const displayMessage = Array.isArray(message)
+    ? message.map(item => typeof item === 'object' ? (item.msg || item.message || JSON.stringify(item)) : String(item)).join(', ')
+    : (message && typeof message === 'object' ? (message.msg || message.message || JSON.stringify(message)) : String(message ?? ''));
+  toast.innerText = displayMessage;
   container.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3500);
 }
@@ -672,7 +675,7 @@ async function submitStudentRegistration() {
     return;
   }
 
-  if (recordedVoiceBase64 && voiceRecordSeconds > 0 && voiceRecordSeconds < 1) {
+  if (recordedVoiceBase64 && voiceRecordSeconds < 1) {
     showToast('Please record at least 1 second of clear speech for voice enrollment.', 'error');
     if (submitButton) {
       submitButton.disabled = false;
