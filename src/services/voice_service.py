@@ -1,4 +1,5 @@
 import io
+import threading
 import wave
 import numpy as np
 import librosa
@@ -7,14 +8,20 @@ from scipy.io import wavfile
 from resemblyzer import VoiceEncoder, preprocess_wav
 from typing import Dict, Optional, Tuple, Any, List
 
+_VOICE_LOCK = threading.Lock()
 _VOICE_ENCODER = None
 
 def load_voice_encoder() -> VoiceEncoder:
-    """Lazy load VoiceEncoder model."""
+    """Lazy load VoiceEncoder model with thread safety."""
     global _VOICE_ENCODER
-    if _VOICE_ENCODER is None:
+    if _VOICE_ENCODER is not None:
+        return _VOICE_ENCODER
+
+    with _VOICE_LOCK:
+        if _VOICE_ENCODER is not None:
+            return _VOICE_ENCODER
         _VOICE_ENCODER = VoiceEncoder()
-    return _VOICE_ENCODER
+        return _VOICE_ENCODER
 
 
 def load_audio_array(audio_bytes: bytes, target_sr: int = 16000) -> Tuple[np.ndarray, int]:

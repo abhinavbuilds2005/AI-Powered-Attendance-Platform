@@ -771,7 +771,11 @@ async function toggleVoiceRecording() {
 }
 window.toggleVoiceRecording = toggleVoiceRecording;
 
+let isRegisteringStudent = false;
+
 async function submitStudentRegistration() {
+  if (isRegisteringStudent) return;
+
   const nameInput = document.getElementById('reg-student-name');
   const submitButton = document.getElementById('btn-complete-registration');
   const name = nameInput?.value.trim() || '';
@@ -792,13 +796,15 @@ async function submitStudentRegistration() {
     return;
   }
 
+  isRegisteringStudent = true;
   if (submitButton) {
     submitButton.disabled = true;
     submitButton.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Creating Profile...';
   }
 
+  // Network-safety fallback timeout (60s). Backend now responds immediately without blocking training.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   try {
     const res = await fetch('/api/student/register', {
@@ -843,11 +849,12 @@ async function submitStudentRegistration() {
     clearTimeout(timeoutId);
     console.error('Student registration error:', err);
     if (err.name === 'AbortError') {
-      showToast('Registration request timed out. Please try again.', 'error');
+      showToast('Registration request timed out. Please check your internet connection and try again.', 'error');
     } else {
       showToast('Could not connect to the registration server. Please try again.', 'error');
     }
   } finally {
+    isRegisteringStudent = false;
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> Complete Profile Registration';
@@ -1120,9 +1127,11 @@ async function submitTeacherLogin() {
     showToast('Login network error.', 'error');
   }
 }
-window.submitTeacherLogin = submitTeacherLogin;
+let isRegisteringTeacher = false;
 
 async function submitTeacherRegister() {
+  if (isRegisteringTeacher) return;
+
   const name = document.getElementById('t-reg-name').value.trim();
   const u = document.getElementById('t-reg-username').value.trim();
   const p = document.getElementById('t-reg-password').value;
@@ -1132,22 +1141,29 @@ async function submitTeacherRegister() {
     return;
   }
 
+  isRegisteringTeacher = true;
+  const btn = document.getElementById('btn-teacher-register');
+  if (btn) btn.disabled = true;
+
   try {
     const res = await fetch('/api/auth/teacher/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, username: u, password: p })
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     if (res.ok) {
       showToast('Account created! Please sign in.', 'success');
       switchTeacherAuthTab('login');
       document.getElementById('t-login-username').value = u;
     } else {
-      showToast(data.detail || 'Registration failed.', 'error');
+      showToast(data.detail || data.message || 'Registration failed.', 'error');
     }
   } catch (err) {
     showToast('Registration network error.', 'error');
+  } finally {
+    isRegisteringTeacher = false;
+    if (btn) btn.disabled = false;
   }
 }
 window.submitTeacherRegister = submitTeacherRegister;

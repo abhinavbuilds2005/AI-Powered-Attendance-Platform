@@ -18,7 +18,7 @@ from src.services.db_service import (
     unenroll_student_to_subject, supabase
 )
 from src.services.face_service import (
-    predict_attendance, get_face_embeddings, train_classifier,
+    predict_attendance, get_face_embeddings, invalidate_classifier_cache,
     verify_liveness_and_anti_spoof
 )
 from src.services.voice_service import get_voice_embedding, identify_speaker
@@ -68,7 +68,7 @@ def student_register(req: StudentRegisterRequest):
 
         response_data = create_student(name, face_embedding=face_emb, voice_embedding=voice_emb)
         if response_data:
-            train_classifier()
+            invalidate_classifier_cache()
             student = response_data[0]
             student_clean = student.copy()
             student_clean.pop('face_embedding', None)

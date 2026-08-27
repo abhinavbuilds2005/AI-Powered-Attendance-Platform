@@ -1,18 +1,26 @@
+import threading
 import dlib
 import numpy as np
 import face_recognition_models
 from sklearn.svm import SVC
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 from src.services.db_service import get_all_students
 
+_DLIB_LOCK = threading.Lock()
+_MODEL_LOCK = threading.Lock()
 _DLIB_MODELS = None
-_TRAINED_MODEL = None
+_TRAINED_MODEL: Optional[Dict[str, Any]] = None
 
 def load_dlib_models():
-    """Lazy load dlib models to keep startup times fast."""
+    """Lazy load dlib models with thread safety to keep startup times fast."""
     global _DLIB_MODELS
-    if _DLIB_MODELS is None:
+    if _DLIB_MODELS is not None:
+        return _DLIB_MODELS
+
+    with _DLIB_LOCK:
+        if _DLIB_MODELS is not None:
+            return _DLIB_MODELS
         detector = dlib.get_frontal_face_detector()
         sp = dlib.shape_predictor(
             face_recognition_models.pose_predictor_model_location()
@@ -21,7 +29,7 @@ def load_dlib_models():
             face_recognition_models.face_recognition_model_location()
         )
         _DLIB_MODELS = (detector, sp, facerec)
-    return _DLIB_MODELS
+        return _DLIB_MODELS
 
 
 def calculate_ear(eye_points) -> float:
@@ -95,51 +103,70 @@ def get_face_embeddings(image_np: np.ndarray) -> List[np.ndarray]:
         encodings.append(np.array(face_descriptor))
     return encodings
 
-def get_trained_model() -> Any:
-    """Load or train face classifier SVM model on student embeddings."""
+def invalidate_classifier_cache() -> None:
+    """Safely invalidate the cached in-memory face classifier model."""
+    global _TRAINED_MODEL
+    with _MODEL_LOCK:
+        _TRAINED_MODEL = None
+    print("[FaceService] Face classifier cache invalidated.")
+
+def get_trained_model() -> Optional[Dict[str, Any]]:
+    """Lazily load and train face classifier model on student embeddings with thread safety."""
     global _TRAINED_MODEL
     if _TRAINED_MODEL is not None:
         return _TRAINED_MODEL
 
-    X = []
-    y = []
+    with _MODEL_LOCK:
+        # Double-checked locking to avoid concurrent redundant training
+        if _TRAINED_MODEL is not None:
+            return _TRAINED_MODEL
 
-    student_db = get_all_students()
-    if not student_db:
-        return None
+        X = []
+        y = []
 
-    for student in student_db:
-        embedding = student.get('face_embedding')
-        student_id = student.get('student_id')
-        if embedding and student_id is not None:
-            try:
-                vector = np.asarray(embedding, dtype=np.float64)
-                if vector.shape == (128,) and np.isfinite(vector).all():
-                    X.append(vector)
-                    y.append(int(student_id))
-            except (TypeError, ValueError):
-                continue
+        try:
+            student_db = get_all_students()
+        except Exception as e:
+            print("[FaceService] Error querying students from database:", e)
+            return None
 
-    if len(X) == 0:
-        return None
+        if not student_db:
+            return None
 
-    if len(set(y)) < 2:
-        _TRAINED_MODEL = {'clf': None, 'X': X, 'y': y}
+        for student in student_db:
+            embedding = student.get('face_embedding')
+            student_id = student.get('student_id')
+            if embedding and student_id is not None:
+                try:
+                    vector = np.asarray(embedding, dtype=np.float64)
+                    if vector.shape == (128,) and np.isfinite(vector).all():
+                        X.append(vector)
+                        y.append(int(student_id))
+                except (TypeError, ValueError):
+                    continue
+
+        if len(X) == 0:
+            return None
+
+        if len(set(y)) < 2:
+            _TRAINED_MODEL = {'clf': None, 'X': X, 'y': y}
+            return _TRAINED_MODEL
+
+        clf = None
+        try:
+            svc_model = SVC(kernel='linear', probability=True, class_weight='balanced')
+            svc_model.fit(X, y)
+            clf = svc_model
+        except Exception as e:
+            print("[FaceService] Notice: SVM fitting fallback to metric matching:", e)
+            clf = None
+
+        _TRAINED_MODEL = {'clf': clf, 'X': X, 'y': y}
         return _TRAINED_MODEL
-
-    clf = SVC(kernel='linear', probability=True, class_weight='balanced')
-    try:
-        clf.fit(X, y)
-    except ValueError:
-        return None
-
-    _TRAINED_MODEL = {'clf': clf, 'X': X, 'y': y}
-    return _TRAINED_MODEL
 
 def train_classifier() -> bool:
     """Force retrain face classifier model."""
-    global _TRAINED_MODEL
-    _TRAINED_MODEL = None
+    invalidate_classifier_cache()
     model_data = get_trained_model()
     return bool(model_data)
 
