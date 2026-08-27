@@ -33,14 +33,29 @@ def safe_get_voice_embedding(audio_bytes):
     except Exception as exc:
         return None, f"Could not decode the voice sample: {exc}"
 
-    if len(audio) < 800:
+    if len(audio) < 1600:
         return None, "Voice sample is too short. Please record for at least 1 second."
 
-    if float(np.max(np.abs(audio))) < 0.003:
+    if float(np.max(np.abs(audio))) < 0.0005:
         return None, "Voice sample is too quiet. Please speak closer to the microphone."
 
     try:
-        wav = preprocess_wav(audio)
+        wav = np.array([], dtype=np.float32)
+        try:
+            wav = preprocess_wav(audio)
+        except Exception:
+            pass
+
+        if len(wav) < 1600:
+            from resemblyzer.audio import normalize_volume, audio_norm_target_dBFS
+            try:
+                wav = normalize_volume(audio, audio_norm_target_dBFS, increase_only=True)
+            except Exception:
+                wav = audio
+
+        if len(wav) == 0:
+            return None, "Could not process audio waveform."
+
         embedding = load_voice_encoder().embed_utterance(wav)
         return embedding.tolist(), "Voice sample validated successfully."
     except Exception as exc:
@@ -51,35 +66,44 @@ def load_audio_array(audio_bytes, target_sr=16000):
     """
     Robustly loads audio bytes into a 16kHz mono float32 numpy array.
     """
+    def _resample(data: np.ndarray, orig_sr: int) -> np.ndarray:
+        if orig_sr == target_sr:
+            return data
+        try:
+            return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr, res_type="soxr_qq")
+        except Exception:
+            return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr)
+
     try:
         data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
         if data.ndim > 1:
             data = np.mean(data, axis=1)
-        if sr != target_sr:
-            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-        return data, target_sr
+        data = _resample(data, sr)
+        return data.astype(np.float32), target_sr
     except Exception:
         pass
 
     try:
         data, sr = librosa.load(io.BytesIO(audio_bytes), sr=target_sr, mono=True)
-        return data, sr
+        return data.astype(np.float32), sr
     except Exception:
         pass
 
     from scipy.io import wavfile
-    sr, data = wavfile.read(io.BytesIO(audio_bytes))
-    if data.dtype == np.int16:
-        data = data.astype(np.float32) / 32768.0
-    elif data.dtype == np.int32:
-        data = data.astype(np.float32) / 2147483648.0
-    elif data.dtype == np.uint8:
-        data = (data.astype(np.float32) - 128.0) / 128.0
-    if data.ndim > 1:
-        data = np.mean(data, axis=1)
-    if sr != target_sr:
-        data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
-    return data, target_sr
+    try:
+        sr, data = wavfile.read(io.BytesIO(audio_bytes))
+        if data.dtype == np.int16:
+            data = data.astype(np.float32) / 32768.0
+        elif data.dtype == np.int32:
+            data = data.astype(np.float32) / 2147483648.0
+        elif data.dtype == np.uint8:
+            data = (data.astype(np.float32) - 128.0) / 128.0
+        if data.ndim > 1:
+            data = np.mean(data, axis=1)
+        data = _resample(data, sr)
+        return data.astype(np.float32), target_sr
+    except Exception:
+        pass
 
 
 def check_voice_liveness_and_anti_replay(audio_array, sr=16000):

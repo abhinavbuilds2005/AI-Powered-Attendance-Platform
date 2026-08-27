@@ -9,8 +9,6 @@ let classroomCameraStream = null;
 let voiceRecordTimerInterval = null;
 let voiceRecordSeconds = 0;
 let pendingAttendanceLogs = [];
-let studentRegRecorder = null;
-let recordedVoiceBase64 = null;
 
 // Liveness & Geolocation State
 let isLivenessVerified = false;
@@ -26,9 +24,9 @@ class WavAudioRecorder {
     this.mediaStream = null;
     this.processor = null;
     this.input = null;
+    this.gainNode = null;
     this.leftchannel = [];
-    this.recordingLength = 0;
-    this.sampleRate = 44100;
+    this.sampleRate = 16000;
     this.isRecording = false;
     this.mediaRecorder = null;
     this.mediaChunks = [];
@@ -37,36 +35,51 @@ class WavAudioRecorder {
   async start() {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      this.audioContext = new AudioContextClass();
+      try {
+        this.audioContext = new AudioContextClass({ sampleRate: 16000 });
+      } catch (e) {
+        this.audioContext = new AudioContextClass();
+      }
+
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
-      this.sampleRate = this.audioContext.sampleRate || 44100;
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.sampleRate = this.audioContext.sampleRate || 16000;
+      this.mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
       this.input = this.audioContext.createMediaStreamSource(this.mediaStream);
       this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = 0; // Mute to prevent acoustic speaker feedback
+
       this.leftchannel = [];
-      this.recordingLength = 0;
       this.isRecording = true;
 
       this.processor.onaudioprocess = (e) => {
         if (!this.isRecording) return;
         const channel = e.inputBuffer.getChannelData(0);
         this.leftchannel.push(new Float32Array(channel));
-        this.recordingLength += channel.length;
       };
 
       this.input.connect(this.processor);
-      this.processor.connect(this.audioContext.destination);
+      this.processor.connect(this.gainNode);
+      this.gainNode.connect(this.audioContext.destination);
     } catch (err) {
-      // Fallback to standard MediaRecorder if ScriptProcessor fails
+      // Fallback to standard MediaRecorder if ScriptProcessor/AudioContext fails
       if (!this.mediaStream) {
         this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       }
       this.mediaChunks = [];
       this.mediaRecorder = new MediaRecorder(this.mediaStream);
       this.mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) this.mediaChunks.push(e.data);
+        if (e.data && e.data.size > 0) this.mediaChunks.push(e.data);
       };
       this.mediaRecorder.start(100);
       this.isRecording = true;
@@ -91,28 +104,35 @@ class WavAudioRecorder {
       });
     }
 
-    if (this.processor && this.input) {
-      this.processor.disconnect();
-      this.input.disconnect();
+    if (this.processor) {
+      try { this.processor.disconnect(); } catch (e) {}
+    }
+    if (this.input) {
+      try { this.input.disconnect(); } catch (e) {}
+    }
+    if (this.gainNode) {
+      try { this.gainNode.disconnect(); } catch (e) {}
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(track => track.stop());
     }
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      try { await this.audioContext.close(); } catch (e) {}
+      try { this.audioContext.close(); } catch (e) {}
     }
 
-    if (this.recordingLength === 0 && this.leftchannel.length === 0) {
+    const totalSamples = this.leftchannel.reduce((sum, ch) => sum + ch.length, 0);
+    if (totalSamples === 0) {
       throw new Error("No audio samples were captured.");
     }
 
-    const flatSamples = new Float32Array(this.recordingLength);
+    const flatSamples = new Float32Array(totalSamples);
     let offset = 0;
     for (let i = 0; i < this.leftchannel.length; i++) {
       flatSamples.set(this.leftchannel[i], offset);
       offset += this.leftchannel[i].length;
     }
 
+    const actualSampleRate = this.sampleRate || 16000;
     const buffer = new ArrayBuffer(44 + flatSamples.length * 2);
     const view = new DataView(buffer);
 
@@ -122,7 +142,7 @@ class WavAudioRecorder {
       }
     }
 
-    const byteRate = this.sampleRate * 2;
+    const byteRate = actualSampleRate * 2;
     writeString(view, 0, 'RIFF');
     view.setUint32(4, 36 + flatSamples.length * 2, true);
     writeString(view, 8, 'WAVE');
@@ -130,7 +150,7 @@ class WavAudioRecorder {
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true); // PCM format
     view.setUint16(22, 1, true); // Mono channel
-    view.setUint32(24, this.sampleRate, true);
+    view.setUint32(24, actualSampleRate, true);
     view.setUint32(28, byteRate, true);
     view.setUint16(32, 2, true); // Block align
     view.setUint16(34, 16, true); // Bits per sample
@@ -221,6 +241,59 @@ function closeModal(modalId) {
 }
 window.closeModal = closeModal;
 
+// ==================== CAMPUS GEOFENCING & LOCATION ENGINE ==================== //
+const CAMPUS_CONFIG = {
+  lat: 28.6139,
+  lng: 77.2090,
+  radiusMeters: 800, // 800m Campus Perimeter
+  name: "University Main Campus"
+};
+
+function calculateDistanceInMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function evaluateLocationStatus(coords) {
+  if (!coords || typeof coords.lat !== 'number' || typeof coords.lng !== 'number') {
+    return {
+      isRemote: false,
+      status: 'unknown',
+      label: '📍 Location: Verified',
+      distanceMeters: 0
+    };
+  }
+
+  const distance = calculateDistanceInMeters(coords.lat, coords.lng, CAMPUS_CONFIG.lat, CAMPUS_CONFIG.lng);
+  const isWithinCampus = distance <= CAMPUS_CONFIG.radiusMeters;
+
+  if (isWithinCampus) {
+    return {
+      isRemote: false,
+      status: 'on_campus',
+      label: `📍 On-Campus (Verified - ${Math.round(distance)}m)`,
+      distanceMeters: distance
+    };
+  } else {
+    const distKm = (distance / 1000).toFixed(1);
+    return {
+      isRemote: true,
+      status: 'remote_home',
+      label: `🏠 Remote / From Home (~${distKm} km from Campus)`,
+      distanceMeters: distance
+    };
+  }
+}
+
 // ==================== GEOLOCATION VERIFICATION ==================== //
 function initGeoLocation() {
   const geoLabels = [
@@ -228,19 +301,24 @@ function initGeoLocation() {
     document.getElementById('geo-status-label-voice')
   ].filter(Boolean);
   if (!navigator.geolocation) {
-    geoLabels.forEach(label => { label.innerText = '📍 Geolocation: Not supported'; });
+    geoLabels.forEach(label => { label.innerHTML = '📍 Geolocation: Not supported'; });
     return;
   }
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       userCoordinates = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const evalLoc = evaluateLocationStatus(userCoordinates);
       geoLabels.forEach(label => {
-        label.innerHTML = `📍 Campus Location: <strong>Verified</strong> (${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°)`;
+        if (evalLoc.isRemote) {
+          label.innerHTML = `🏠 Live Location: <strong style="color: #F59E0B;">Remote / From Home</strong> (${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°)`;
+        } else {
+          label.innerHTML = `📍 Campus Location: <strong style="color: var(--success);">On-Campus (Verified)</strong> (${pos.coords.latitude.toFixed(2)}°, ${pos.coords.longitude.toFixed(2)}°)`;
+        }
       });
     },
     () => {
-      geoLabels.forEach(label => { label.innerText = '📍 Location: Campus Zone Active'; });
+      geoLabels.forEach(label => { label.innerHTML = '📍 Location: Campus Zone Active'; });
     },
     { enableHighAccuracy: true, timeout: 6000 }
   );
@@ -701,6 +779,7 @@ async function submitStudentRegistration() {
 
   if (!name) {
     showToast('Please enter your full official name.', 'error');
+    if (nameInput) nameInput.focus();
     return;
   }
   if (!faceImage) {
@@ -709,11 +788,7 @@ async function submitStudentRegistration() {
   }
 
   if (recordedVoiceBase64 && recordedVoiceBase64.length < 200) {
-    showToast('Please record a clear voice sample for voice enrollment.', 'error');
-    if (submitButton) {
-      submitButton.disabled = false;
-      submitButton.innerHTML = '<span class="material-symbols-outlined">how_to_reg</span> Complete Profile Registration';
-    }
+    showToast('Voice recording was too short. Please record for 2-4 seconds or clear voice.', 'error');
     return;
   }
 
@@ -722,6 +797,9 @@ async function submitStudentRegistration() {
     submitButton.innerHTML = '<span class="material-symbols-outlined">hourglass_top</span> Creating Profile...';
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
+
   try {
     const res = await fetch('/api/student/register', {
       method: 'POST',
@@ -729,20 +807,46 @@ async function submitStudentRegistration() {
       body: JSON.stringify({
         name: name,
         image: faceImage,
-        audio: recordedVoiceBase64
-      })
+        audio: recordedVoiceBase64 || null
+      }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
+
     const data = await res.json().catch(() => ({}));
     if (res.ok && data.success && data.student) {
       currentStudent = data.student;
       showToast(data.message || 'Profile created successfully!', 'success');
+
+      // Clear registration form states
+      if (nameInput) nameInput.value = '';
+      window.lastCapturedFaceB64 = null;
+      recordedVoiceBase64 = null;
+      const preview = document.getElementById('reg-voice-preview');
+      if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+      }
+      const previewMsg = document.getElementById('reg-face-preview-msg');
+      if (previewMsg) previewMsg.innerText = '';
+      const micLabel = document.getElementById('mic-label');
+      if (micLabel) micLabel.innerText = 'Record Voice Sample';
+      const timer = document.getElementById('voice-timer');
+      if (timer) timer.innerText = '';
+
       loadStudentDashboard();
     } else {
-      showToast(data.detail || data.message || `Registration failed (${res.status}).`, 'error');
+      const errorMsg = data.detail || data.message || `Registration failed (${res.status}).`;
+      showToast(errorMsg, 'error');
     }
   } catch (err) {
+    clearTimeout(timeoutId);
     console.error('Student registration error:', err);
-    showToast('Could not reach the registration server. Please try again.', 'error');
+    if (err.name === 'AbortError') {
+      showToast('Registration request timed out. Please try again.', 'error');
+    } else {
+      showToast('Could not connect to the registration server. Please try again.', 'error');
+    }
   } finally {
     if (submitButton) {
       submitButton.disabled = false;
@@ -832,9 +936,14 @@ async function loadStudentDashboard() {
             <span class="badge badge-success">✅ ${c.attended_sessions} / ${c.total_sessions} Attended</span>
             <span class="badge ${c.attendance_rate < 75 ? 'badge-danger' : 'badge-info'}">📊 ${c.attendance_rate}%</span>
           </div>
-          <button class="btn btn-danger btn-block" style="margin-top: 8px;" onclick="unenrollCourse(${c.subject_id}, '${c.name}')">
-            <span class="material-symbols-outlined">delete</span> Unenroll
-          </button>
+          <div style="display: flex; gap: 8px; width: 100%; margin-top: 12px;">
+            <button class="btn btn-primary" style="flex: 2; padding: 0.6rem 0.8rem; font-size: 0.88rem;" onclick="markStudentCourseAttendance(${c.subject_id}, '${c.name.replace(/'/g, "\\'")}')">
+              <span class="material-symbols-outlined" style="font-size: 18px;">how_to_reg</span> Check-In (Mark Present)
+            </button>
+            <button class="btn btn-danger" style="flex: 1; padding: 0.6rem 0.8rem; font-size: 0.88rem;" onclick="unenrollCourse(${c.subject_id}, '${c.name.replace(/'/g, "\\'")}')">
+              <span class="material-symbols-outlined" style="font-size: 18px;">delete</span> Unenroll
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -844,6 +953,59 @@ async function loadStudentDashboard() {
   }
 }
 window.loadStudentDashboard = loadStudentDashboard;
+
+async function markStudentCourseAttendance(subjectId, courseName) {
+  if (!currentStudent) {
+    showToast('Please sign in as a student.', 'error');
+    return;
+  }
+
+  showToast(`Verifying live location for ${courseName}...`, 'info');
+
+  let coords = userCoordinates;
+  if (!coords && navigator.geolocation) {
+    try {
+      coords = await new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 4000 }
+        );
+      });
+      if (coords) userCoordinates = coords;
+    } catch (e) {}
+  }
+
+  const locEval = evaluateLocationStatus(coords);
+
+  try {
+    const res = await fetch('/api/attendance/student-checkin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: currentStudent.student_id,
+        subject_id: subjectId,
+        latitude: coords ? coords.lat : null,
+        longitude: coords ? coords.lng : null,
+        location_label: locEval.label,
+        is_remote: locEval.isRemote
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      const typeToast = locEval.isRemote ? 'info' : 'success';
+      showToast(data.message || `Attendance marked for ${courseName}!`, typeToast);
+      loadStudentDashboard();
+    } else {
+      showToast(data.detail || 'Check-in failed.', 'error');
+    }
+  } catch (err) {
+    showToast('Network error marking attendance.', 'error');
+  }
+}
+window.markStudentCourseAttendance = markStudentCourseAttendance;
+
 
 function openEnrollModal() {
   document.getElementById('input-enroll-code').value = '';
@@ -1399,15 +1561,30 @@ async function loadTeacherAnalytics() {
       return;
     }
 
-    tbody.innerHTML = summary.map(s => `
-      <tr>
-        <td><strong>${s.time}</strong></td>
-        <td>${s.subject}</td>
-        <td><span class="badge badge-info">${s.subject_code}</span></td>
-        <td>✅ ${s.present_count} / ${s.total_count} Students</td>
-        <td><strong>${s.rate}%</strong></td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = summary.map(s => {
+      let timeDisplay = s.time;
+      let locTag = '';
+      if (s.time && s.time.includes('•')) {
+        const parts = s.time.split('•');
+        timeDisplay = parts[0].trim();
+        const rawLoc = parts.slice(1).join('•').trim();
+        if (rawLoc.includes('Remote') || rawLoc.includes('Home')) {
+          locTag = `<div style="margin-top: 4px;"><span class="badge badge-warn" style="font-size: 0.75rem;">${rawLoc}</span></div>`;
+        } else {
+          locTag = `<div style="margin-top: 4px;"><span class="badge badge-success" style="font-size: 0.75rem;">${rawLoc}</span></div>`;
+        }
+      }
+
+      return `
+        <tr>
+          <td><strong>${timeDisplay}</strong>${locTag}</td>
+          <td>${s.subject}</td>
+          <td><span class="badge badge-info">${s.subject_code}</span></td>
+          <td>✅ ${s.present_count} / ${s.total_count} Students</td>
+          <td><strong>${s.rate}%</strong></td>
+        </tr>
+      `;
+    }).join('');
 
   } catch (err) {
     showToast('Failed to load analytics.', 'error');

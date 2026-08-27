@@ -17,7 +17,10 @@ from src.services.db_service import (
     get_student_attendance, enroll_student_to_subject,
     unenroll_student_to_subject, supabase
 )
-from src.services.face_service import predict_attendance, get_face_embeddings, train_classifier
+from src.services.face_service import (
+    predict_attendance, get_face_embeddings, train_classifier,
+    verify_liveness_and_anti_spoof
+)
 from src.services.voice_service import get_voice_embedding, identify_speaker
 from src.core.utils import decode_base64_image, decode_base64_audio
 
@@ -25,7 +28,7 @@ router = APIRouter(prefix="/student", tags=["Student"])
 
 
 @router.post("/register")
-async def student_register(req: StudentRegisterRequest):
+def student_register(req: StudentRegisterRequest):
     """Register a new student with face and optional voice biometrics."""
     try:
         name = req.name.strip() if req.name else ""
@@ -51,12 +54,16 @@ async def student_register(req: StudentRegisterRequest):
 
         # Extract voice embedding if audio is provided
         voice_emb = None
-        if req.audio:
+        if req.audio and len(str(req.audio).strip()) > 100:
             try:
                 audio_bytes = decode_base64_audio(req.audio)
                 voice_emb = get_voice_embedding(audio_bytes)
+                if voice_emb:
+                    print(f"[Register] Successfully extracted 256-D voice embedding for {name}")
+                else:
+                    print(f"[Register] Voice sample provided but could not extract clean embedding for {name}")
             except Exception as e:
-                print("Voice embedding extraction notice:", e)
+                print("[Register] Voice embedding extraction notice:", e)
                 voice_emb = None
 
         response_data = create_student(name, face_embedding=face_emb, voice_embedding=voice_emb)
@@ -66,9 +73,11 @@ async def student_register(req: StudentRegisterRequest):
             student_clean = student.copy()
             student_clean.pop('face_embedding', None)
             student_clean.pop('voice_embedding', None)
+            
+            voice_status_msg = " and voiceprint" if voice_emb else ""
             return {
                 "success": True,
-                "message": f"Profile created successfully for {name}!",
+                "message": f"Biometric profile created successfully for {name}{voice_status_msg}!",
                 "student": student_clean
             }
 
@@ -76,24 +85,45 @@ async def student_register(req: StudentRegisterRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
+        print("[Register] Unexpected error:", e)
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 
 @router.post("/face-login")
 @router.post("/login-face")
-async def student_face_login(req: StudentFaceLoginRequest):
-    """Authenticate a student using face recognition and burst capture."""
+def student_face_login(req: StudentFaceLoginRequest):
+    """Authenticate a student using face recognition and burst capture with live anti-spoofing."""
     try:
         frames = req.images if req.images else ([req.image] if req.image else [])
         if not frames:
             raise HTTPException(status_code=400, detail="No face images provided for scan.")
 
+        decoded_images = []
+        for frame_b64 in frames:
+            try:
+                decoded_images.append(decode_base64_image(frame_b64))
+            except Exception:
+                continue
+
+        if not decoded_images:
+            raise HTTPException(status_code=400, detail="Could not decode face image frames.")
+
+        # If multiple burst frames are sent (standard FaceID flow), perform Anti-Spoofing check
+        if len(decoded_images) >= 2:
+            is_live, liveness_msg = verify_liveness_and_anti_spoof(decoded_images)
+            if not is_live:
+                print("[Anti-Spoofing Alert] Rejected static photo / screen presentation attack:", liveness_msg)
+                return {
+                    "success": False,
+                    "status": "spoof_detected",
+                    "message": liveness_msg
+                }
+
         matched_student = None
         all_students = get_all_students()
 
-        for frame_b64 in frames:
+        for img_np in decoded_images:
             try:
-                img_np = decode_base64_image(frame_b64)
                 detected, all_ids, num_faces = predict_attendance(img_np)
                 if detected:
                     student_id = int(list(detected.keys())[0])
@@ -126,7 +156,7 @@ async def student_face_login(req: StudentFaceLoginRequest):
 
 
 @router.post("/voice-login")
-async def student_voice_login(req: StudentVoiceLoginRequest):
+def student_voice_login(req: StudentVoiceLoginRequest):
     """Authenticate a student using voice biometrics."""
     try:
         if not req.audio:

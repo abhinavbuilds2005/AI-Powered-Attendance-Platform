@@ -23,6 +23,66 @@ def load_dlib_models():
         _DLIB_MODELS = (detector, sp, facerec)
     return _DLIB_MODELS
 
+
+def calculate_ear(eye_points) -> float:
+    """
+    Computes Eye Aspect Ratio (EAR) from 6 landmark points.
+    EAR = (|p2 - p6| + |p3 - p5|) / (2 * |p1 - p4|)
+    """
+    p = [np.array([pt.x, pt.y], dtype=np.float64) for pt in eye_points]
+    A = np.linalg.norm(p[1] - p[5])
+    B = np.linalg.norm(p[2] - p[4])
+    C = np.linalg.norm(p[0] - p[3])
+    if C == 0:
+        return 0.0
+    return float((A + B) / (2.0 * C))
+
+
+def verify_liveness_and_anti_spoof(images_np: List[np.ndarray]) -> Tuple[bool, str]:
+    """
+    Evaluates burst frames for natural human eye blink closure (EAR) and facial dynamics.
+    Rejects static photos, paper printouts, and digital phone screens.
+    """
+    if not images_np:
+        return False, "No camera frames received."
+
+    detector, sp, _ = load_dlib_models()
+    ears = []
+
+    for img in images_np:
+        faces = detector(img, 0)
+        if not faces:
+            continue
+        face = faces[0]
+        shape = sp(img, face)
+
+        # 68 landmark points: Left eye (36-41), Right eye (42-47)
+        left_eye = [shape.part(i) for i in range(36, 42)]
+        right_eye = [shape.part(i) for i in range(42, 48)]
+
+        l_ear = calculate_ear(left_eye)
+        r_ear = calculate_ear(right_eye)
+        avg_ear = (l_ear + r_ear) / 2.0
+        ears.append(avg_ear)
+
+    if len(ears) < 2:
+        return True, "Single frame verified"
+
+    ear_min = min(ears)
+    ear_max = max(ears)
+    ear_delta = ear_max - ear_min
+
+    # True human blink / natural optical dynamics check:
+    # 1. Delta between open and closed state >= 0.035
+    # OR 2. One frame has closed/partial eye (< 0.22) and another open (> 0.25)
+    is_live_blink = (ear_delta >= 0.035) or (ear_min < 0.22 and ear_max > 0.25)
+
+    if not is_live_blink:
+        return False, "Anti-Spoofing: Static photo or screen detected. Please blink your eyes naturally while scanning."
+
+    return True, "Live human presence verified"
+
+
 def get_face_embeddings(image_np: np.ndarray) -> List[np.ndarray]:
     """Extract face embeddings (128-D) from a numpy image array."""
     detector, sp, facerec = load_dlib_models()

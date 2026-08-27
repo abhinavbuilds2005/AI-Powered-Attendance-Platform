@@ -74,3 +74,13 @@ class AttendanceLogItem(BaseModel):
 
 class CommitAttendanceRequest(BaseModel):
     logs: List[AttendanceLogItem]
+
+
+class StudentCheckInRequest(BaseModel):
+    student_id: int
+    subject_id: int
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_label: Optional[str] = None
+    is_remote: Optional[bool] = False
+

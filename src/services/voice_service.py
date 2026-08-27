@@ -19,18 +19,26 @@ def load_voice_encoder() -> VoiceEncoder:
 
 def load_audio_array(audio_bytes: bytes, target_sr: int = 16000) -> Tuple[np.ndarray, int]:
     """
-    Robustly decodes audio bytes (WAV, PCM, OGG, FLAC, etc.) into a 16kHz mono float32 numpy array.
+    Robustly decodes audio bytes (WAV, PCM, OGG, FLAC, WebM, etc.) into a 16kHz mono float32 numpy array.
     """
     if not audio_bytes:
         raise ValueError("Audio byte buffer is empty.")
+
+    # Fast resample helper
+    def _resample(data: np.ndarray, orig_sr: int) -> np.ndarray:
+        if orig_sr == target_sr:
+            return data
+        try:
+            return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr, res_type="soxr_qq")
+        except Exception:
+            return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr)
 
     # 1. Try SoundFile reader
     try:
         data, sr = sf.read(io.BytesIO(audio_bytes), dtype='float32')
         if data.ndim > 1:
             data = np.mean(data, axis=1)
-        if sr != target_sr:
-            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+        data = _resample(data, sr)
         return data.astype(np.float32), target_sr
     except Exception:
         pass
@@ -56,8 +64,7 @@ def load_audio_array(audio_bytes: bytes, target_sr: int = 16000) -> Tuple[np.nda
             if n_channels > 1:
                 data = data.reshape(-1, n_channels).mean(axis=1)
 
-            if framerate != target_sr:
-                data = librosa.resample(data, orig_sr=framerate, target_sr=target_sr)
+            data = _resample(data, framerate)
             return data.astype(np.float32), target_sr
     except Exception:
         pass
@@ -76,8 +83,7 @@ def load_audio_array(audio_bytes: bytes, target_sr: int = 16000) -> Tuple[np.nda
 
         if data.ndim > 1:
             data = np.mean(data, axis=1)
-        if sr != target_sr:
-            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+        data = _resample(data, sr)
         return data.astype(np.float32), target_sr
     except Exception:
         pass
@@ -98,19 +104,36 @@ def get_voice_embedding(audio_bytes: bytes) -> Optional[List[float]]:
         encoder = load_voice_encoder()
         audio, sr = load_audio_array(audio_bytes, target_sr=16000)
         
-        # Audio length & silence check
-        if len(audio) < 1600:  # Minimum ~0.1s
+        # Audio length & silence check (~0.1s minimum)
+        if len(audio) < 1600:
             return None
         
-        if float(np.max(np.abs(audio))) < 0.001:
+        max_amp = float(np.max(np.abs(audio)))
+        if max_amp < 0.0005:
             return None
 
-        wav = preprocess_wav(audio)
+        # Preprocess with VAD, but fallback gracefully if VAD trimmed everything
+        wav = np.array([], dtype=np.float32)
+        try:
+            wav = preprocess_wav(audio)
+        except Exception:
+            pass
+
+        # If silence trimming removed the entire utterance, use normalized raw audio
+        if len(wav) < 1600:
+            from resemblyzer.audio import normalize_volume, audio_norm_target_dBFS
+            try:
+                wav = normalize_volume(audio, audio_norm_target_dBFS, increase_only=True)
+            except Exception:
+                wav = audio
+
         if len(wav) == 0:
             return None
 
         embedding = encoder.embed_utterance(wav)
-        return embedding.tolist()
+        if embedding is not None and len(embedding) > 0:
+            return embedding.tolist()
+        return None
     except Exception as e:
         print('Voice recognition error:', e)
         return None
